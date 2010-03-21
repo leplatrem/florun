@@ -216,6 +216,7 @@ class DiagramItem(QGraphicsItemGroup):
         f = QFont()
         f.setBold(True)
         self.text.setFont(f)
+        self.text.setZValue(1000)
         self.addToGroup(self.text)
 
     def SVGShape(self):
