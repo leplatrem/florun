@@ -923,7 +923,10 @@ class MainWindow(QMainWindow):
         diagrampanel.addWidget(self.nodelibrary)
         diagrampanel.addWidget(self.view)
         diagrampanel.addWidget(self.parameters)
-        diagrampanel.setSizes([210, 400, 150])
+        diagrampanel.setSizes([180, 400, 150])
+        diagrampanel.setStretchFactor(0, 0)
+        diagrampanel.setStretchFactor(1, 1)
+        diagrampanel.setStretchFactor(2, 0)
         
         """
         Console Panel
