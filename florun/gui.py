@@ -3,12 +3,12 @@ import os, sys
 import cStringIO, traceback
 
 from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtSvg import *
+from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QIcon, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap 
+from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
-from flow import *
-from utils import loggui, itersubclasses, groupby
+from florun.flow  import *
+from florun.utils import logcore, loggui, itersubclasses, groupby, empty
 
 """
 
@@ -957,37 +957,58 @@ class MainWindow(QMainWindow):
     def setStatusMessage(self, txt, timeout=3000):
         self.statusBar().showMessage(txt, timeout)
 
-    def loadIcon(self, pixmap):
-        style = self.style()
-        return style.standardIcon(pixmap)
+    def loadIcon(self, iconid):
+        """
+        @param iconid : Freedesktop identifier from http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
+        @type iconid : str
+        @rtype: L{QtGui.QIcon}
+        """
+        #style = self.style()
+        #return style.standardIcon(pixmap)
+        try:
+            if QIcon.hasThemeIcon(iconid):
+                return QIcon.fromTheme(iconid)
+        except AttributeError, e:
+            pass
+        # Guess path of icon
+        base = '/usr/share/icons/'
+        find = QProcess()
+        find.start('find %s -name "%s*"' % (base, iconid))
+        if find.waitForFinished():
+            list = QString(find.readAllStandardOutput()).split("\n")
+            if len(list) > 0:
+                path = list[0]
+                loggui.debug("Load icon file from '%s'" % path)
+                return QIcon(QPixmap(path))
+        raise Exception("Could not find icon '%s'" % iconid)
 
     def buildActions(self):
-        self.new = QAction(self.loadIcon(QStyle.SP_DialogResetButton), self.tr('New'), self)
+        self.new = QAction(self.loadIcon('document-new'), self.tr('New'), self)
         self.new.setShortcut('Ctrl+N')
         self.new.setStatusTip(self.tr('New flow'))
         self.connect(self.new, SIGNAL('triggered()'), self.newFlow)
         
-        self.open = QAction(self.loadIcon(QStyle.SP_DialogOpenButton), self.tr('Open'), self)
+        self.open = QAction(self.loadIcon('document-open'), self.tr('Open'), self)
         self.open.setShortcut('Ctrl+O')
         self.open.setStatusTip(self.tr('Open flow'))
         self.connect(self.open, SIGNAL('triggered()'), self.loadFlow)
 
-        self.save = QAction(self.loadIcon(QStyle.SP_DialogSaveButton), self.tr('Save'), self)
+        self.save = QAction(self.loadIcon('document-save'), self.tr('Save'), self)
         self.save.setShortcut('Ctrl+S')
         self.save.setStatusTip(self.tr('Save flow'))
         self.connect(self.save, SIGNAL('triggered()'), self.saveFlow)
          
-        self.exit = QAction(self.loadIcon(QStyle.SP_DialogCloseButton), self.tr('Exit'), self)
+        self.exit = QAction(self.loadIcon('application-exit'), self.tr('Exit'), self)
         self.exit.setShortcut('Ctrl+Q')
         self.exit.setStatusTip(self.tr('Exit application'))
         self.connect(self.exit, SIGNAL('triggered()'), SLOT('close()'))
         
-        self.start = QAction(self.loadIcon(QStyle.SP_FileDialogStart), self.tr('Start'), self)
+        self.start = QAction(self.loadIcon('media-playback-start'), self.tr('Start'), self)
         self.start.setShortcut('Ctrl+R')
         self.start.setStatusTip(self.tr('Start flow'))
         self.connect(self.start, SIGNAL('triggered()'), self.startFlow)
         
-        self.stop = QAction(self.loadIcon(QStyle.SP_FileDialogStart), self.tr('Stop'), self)
+        self.stop = QAction(self.loadIcon('media-playback-stop'), self.tr('Stop'), self)
         self.stop.setShortcut('Ctrl+S')
         self.stop.setStatusTip(self.tr('Stop running flow'))
         self.connect(self.stop, SIGNAL('triggered()'), self.stopFlow)

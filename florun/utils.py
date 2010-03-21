@@ -59,9 +59,9 @@ def empty(data):
         return len(data) == 0
     if type(data) == dict:
         return len(data.keys()) == 0
-    if type(data) == str or type(data) == unicode:
-        return data == ''
-    return data is None
+    if data is None:
+        return True
+    return '%s' % data == '' 
 
 #.......................................................................
 
