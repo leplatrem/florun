@@ -620,7 +620,7 @@ class FileOutputNode (OutputNode):
         self.input    = InterfaceStream(self, 'input', default='EOF', type=Interface.INPUT, doc="input to write")
 
     def run(self):
-        self.debug(_("Write content to file '%s'") % self.filepath.value)
+        self.info(_("Write content to file '%s'") % self.filepath.value)
         f = open(self.filepath.value, 'wb')
         for line in self.input:
             f.write(line)

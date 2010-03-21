@@ -15,28 +15,15 @@ class Logger(object):
         console.setFormatter(formatter)
         self.logger.addHandler(console)
 
-        self._verbose = False
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(self.INFO)
     
     def setLevel(self, level):
+        if type(level) != int:
+            level = int(level)
         if level < self.DEBUG:
             level = level * 10
-        levels = {'10':self.DEBUG,'20':self.INFO,'30':self.WARNING,'40':self.ERROR}
-        self.logger.setLevel(levels[level])
-    
-    @property
-    def verbose(self):
-        return self._verbose
-    
-    @verbose.setter
-    def verbose(self, on):
-        """ Toggle verbose on/off.
-        """
-        if on is True:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
-        self._verbose = on
+        levels = {10:self.DEBUG, 20:self.INFO, 30:self.WARNING, 40:self.ERROR}
+        self.logger.setLevel(levels.get(level, self.INFO))
 
     def logfile(self, filename):
         """ Set logfile output.

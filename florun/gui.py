@@ -832,6 +832,7 @@ class FlowConsole(QWidget):
         self.cbloglevel.insertItem(1, self.tr("Warnings"),    logcore.WARNING)
         self.cbloglevel.insertItem(2, self.tr("Information"), logcore.INFO)
         self.cbloglevel.insertItem(3, self.tr("Debug messages"), logcore.DEBUG)
+        self.cbloglevel.setCurrentIndex(2)
         
         self.lblloglevel = QLabel(self.tr("Output"))
         self.lblloglevel.setBuddy(self.cbloglevel)
