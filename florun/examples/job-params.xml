@@ -1,0 +1,61 @@
+<?xml version="1.0" ?>
+<flow>
+	<node id="Read" type="FileInputNode">
+		<graphproperty name="y" value="-715.0"/>
+		<graphproperty name="x" value="-245.0"/>
+		<interface name="filepath" slot="True"/>
+		<interface name="output">
+			<successor interface="stdin" node="tail"/>
+		</interface>
+	</node>
+	<node id="tail" type="ProcessNode">
+		<graphproperty name="y" value="-605.0"/>
+		<graphproperty name="x" value="-243.0"/>
+		<interface name="stdin"/>
+		<interface name="stdout">
+			<successor interface="stdin" node="head"/>
+		</interface>
+		<interface name="cmd" slot="False" value="/usr/bin/tail"/>
+		<interface name="result"/>
+		<interface name="stderr"/>
+	</node>
+	<node id="head" type="ProcessNode">
+		<graphproperty name="y" value="-485.0"/>
+		<graphproperty name="x" value="-264.0"/>
+		<interface name="stdin"/>
+		<interface name="stdout">
+			<successor interface="input" node="Write"/>
+			<successor interface="input" node="Print"/>
+		</interface>
+		<interface name="cmd" slot="False" value="head"/>
+		<interface name="result"/>
+		<interface name="stderr"/>
+	</node>
+	<node id="Write" type="FileOutputNode">
+		<graphproperty name="y" value="-324.0"/>
+		<graphproperty name="x" value="-412.0"/>
+		<interface name="filepath" slot="True"/>
+		<interface name="input"/>
+	</node>
+	<node id="Print" type="CommandLineStdoutOutputNode">
+		<graphproperty name="y" value="-318.0"/>
+		<graphproperty name="x" value="-147.0"/>
+		<interface name="input"/>
+	</node>
+	<node id="param input" type="CommandLineParameterInputNode">
+		<graphproperty name="y" value="-797.0"/>
+		<graphproperty name="x" value="-336.0"/>
+		<interface name="name" slot="False" value="input"/>
+		<interface name="value">
+			<successor interface="filepath" node="Read"/>
+		</interface>
+	</node>
+	<node id="param output" type="CommandLineParameterInputNode">
+		<graphproperty name="y" value="-408.0"/>
+		<graphproperty name="x" value="-490.0"/>
+		<interface name="name" slot="False" value="output"/>
+		<interface name="value">
+			<successor interface="filepath" node="Write"/>
+		</interface>
+	</node>
+</flow>
