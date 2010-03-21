@@ -1219,7 +1219,8 @@ class MainWindow(QMainWindow):
         self.connect(self.process, SIGNAL("readyReadStandardOutput()"), self.console.updateConsole)
         self.connect(self.process, SIGNAL("readyReadStandardError()"),  self.console.updateConsole)
         # Run command
-        cmd = 'python florun.py --level %s --execute "%s"' % (self.console.loglevel, self.flow.filename)
+        florunmain = os.path.join(florun.base_dir, 'florun.py')
+        cmd = 'python %s --level %s --execute "%s"' % (florunmain, self.console.loglevel, self.flow.filename)
         loggui.debug(self.tr("Start command '%s'" % cmd))
         self.process.start(cmd)
         # Now wait...
@@ -1237,6 +1238,10 @@ class MainWindow(QMainWindow):
         """
         # Interrupt running thread
         self.process.kill()
+        self.console.detachProcess()
+        self.process = None
+        self.start.setEnabled(True)
+        self.stop.setEnabled(False)
 
 
 def main(args, filename=None):
