@@ -22,8 +22,9 @@ class Logger(object):
             level = int(level)
         if level < self.DEBUG:
             level = level * 10
-        levels = {10:self.DEBUG, 20:self.INFO, 30:self.WARNING, 40:self.ERROR}
-        self.logger.setLevel(levels.get(level, self.INFO))
+        if level not in [self.DEBUG,self.INFO,self.WARNING,self.ERROR]:
+            level = self.INFO
+        self.logger.setLevel(level)
 
     def logfile(self, filename):
         """ Set logfile output.
