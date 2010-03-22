@@ -1,0 +1,237 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#: florun/flow.py:335 florun/flow.py:336 florun/flow.py:337 florun/flow.py:555
+#: florun/flow.py:644
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2010-03-22 17:48+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: florun.py:17
+#, python-format
+msgid ""
+"%(__title__)s version %(__version__)s\n"
+"%(__copyright__)s by %(__author__)s, %(__credits__)s\n"
+"\n"
+"%(__license__)s"
+msgstr ""
+
+#: florun.py:45
+msgid "Show version"
+msgstr ""
+
+#: florun.py:49
+msgid "Edit specified Florun file"
+msgstr ""
+
+#: florun.py:53
+msgid "Execute specified Florun file"
+msgstr ""
+
+#: florun.py:57
+msgid "Logging level for messages (1:debug - 4:errors)"
+msgstr ""
+
+#: florun.py:116
+#, python-format
+msgid "Exit. (status=%s)"
+msgstr ""
+
+#: florun/flow.py:83
+#, python-format
+msgid "Node with id '%s' not found."
+msgstr ""
+
+#: florun/flow.py:91
+#, python-format
+msgid "Load flow from file '%s'"
+msgstr ""
+
+#: florun/flow.py:104
+#, python-format
+msgid "Save flow to file '%s'"
+msgstr ""
+
+#: florun/flow.py:130
+#, python-format
+msgid "XML node type %s with id '%s'"
+msgstr ""
+
+#: florun/flow.py:136 florun/gui.py:212
+#, python-format
+msgid "Unknown node type '%s'"
+msgstr ""
+
+#: florun/flow.py:144
+#, python-format
+msgid "XML node property : %s = %s"
+msgstr ""
+
+#: florun/flow.py:229
+msgid "Start execution of flow..."
+msgstr ""
+
+#: florun/flow.py:234
+msgid "All node instantiated, waiting for their input interfaces to be ready."
+msgstr ""
+
+#: florun/flow.py:239
+msgid "All input node started. Wait for each node to finish."
+msgstr ""
+
+#: florun/flow.py:242 florun/flow.py:451
+msgid "Done."
+msgstr ""
+
+#: florun/flow.py:288
+msgid "Cannot connect slots"
+msgstr ""
+
+#: florun/flow.py:291
+#, python-format
+msgid "%s has following successors : %s"
+msgstr ""
+
+#: florun/flow.py:303
+msgid "Should not load interface that is not connected."
+msgstr ""
+
+#: florun/flow.py:432
+#, python-format
+msgid "Interface with name '%s' not found on node %s."
+msgstr ""
+
+#: florun/flow.py:445
+msgid "Waiting..."
+msgstr ""
+
+#: florun/flow.py:447
+msgid "Start !"
+msgstr ""
+
+#: florun/flow.py:453
+msgid "Consider all output interfaces ready."
+msgstr ""
+
+#: florun/flow.py:456
+#, python-format
+msgid "Notify %s"
+msgstr ""
+
+#: florun/flow.py:531
+msgid "Basic"
+msgstr ""
+
+#: florun/flow.py:532
+msgid "Process"
+msgstr ""
+
+#: florun/flow.py:533
+msgid "Execute a shell command"
+msgstr ""
+
+#: florun/flow.py:554
+msgid "Input"
+msgstr ""
+
+#: florun/flow.py:559 florun/flow.py:648
+msgid "File"
+msgstr ""
+
+#: florun/flow.py:560
+msgid "Read the content of a file"
+msgstr ""
+
+#: florun/flow.py:570
+msgid "Filepath empty, cannot read file."
+msgstr ""
+
+#: florun/flow.py:571
+#, python-format
+msgid "Read content of file '%s'"
+msgstr ""
+
+#: florun/flow.py:580
+msgid "Value"
+msgstr ""
+
+#: florun/flow.py:581
+msgid "A string or number"
+msgstr ""
+
+#: florun/flow.py:593
+msgid "CLI Param"
+msgstr ""
+
+#: florun/flow.py:594
+msgid "Read a Command-Line Interface parameter"
+msgstr ""
+
+#: florun/flow.py:598
+msgid "Command line interface parameter name"
+msgstr ""
+
+#: florun/flow.py:599
+msgid "value retrieved"
+msgstr ""
+
+#: florun/flow.py:600
+msgid "default value if not specified at runtime"
+msgstr ""
+
+#: florun/flow.py:610
+#, python-format
+msgid "CLI Parameter '%s'='%s'"
+msgstr ""
+
+#: florun/flow.py:617
+msgid "Error in getting name of CLI Parameter"
+msgstr ""
+
+#: florun/flow.py:622
+msgid "CLI Stdin"
+msgstr ""
+
+#: florun/flow.py:623
+msgid "Read the Command-Line Interface standard input"
+msgstr ""
+
+#: florun/flow.py:635
+msgid "File list"
+msgstr ""
+
+#: florun/flow.py:636
+msgid "List files of a folder"
+msgstr ""
+
+#: florun/flow.py:643
+msgid "Output"
+msgstr ""
+
+#: florun/flow.py:649
+msgid "Write the content to a file"
+msgstr ""
+
+#: florun/flow.py:657
+#, python-format
+msgid "Write content to file '%s'"
+msgstr ""
+
+#: florun/flow.py:664
+msgid "CLI Stdout"
+msgstr ""
+
+#: florun/flow.py:665
+msgid "Write to the Command-Line Interface standard output"
+msgstr ""

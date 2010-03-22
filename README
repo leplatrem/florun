@@ -1,1 +1,24 @@
 http://code.mathieu-leplatre.info/projects/show/florun
+
+===== Translation =====
+
+=== Qt Gui === 
+1. Extract
+pylupdate4 -verbose florun/gui.py -ts florun/locale/fr_FR/gui.ts
+
+2. Compile
+lrelease florun/locale/fr_FR/gui.ts
+
+=== Python ===
+1. Extract
+xgettext -k_ -o florun/locale/florun.pot *.py florun/*.py
+
+2. Init lang
+msginit -i florun/locale/florun.pot -o fr_FR/LC_MESSAGES/florun.po
+or
+msgmerge -U fr_FR/LC_MESSAGES/florun.po florun/locale/florun.pot
+
+3. Compile
+msgfmt florun/locale/fr_FR/LC_MESSAGES/florun.po -o florun/locale/fr_FR/LC_MESSAGES/florun.mo
+
+

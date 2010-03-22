@@ -1,0 +1,46 @@
+# French translations for PACKAGE package
+# Traductions françaises du paquet PACKAGE.
+# Copyright (C) 2010 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# mathieu <mathieu@mathieu-desktop>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2010-03-22 17:43+0100\n"
+"Last-Translator: mathieu <mathieu@mathieu-desktop>\n"
+"Language-Team: French\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: florun.py:17
+#, python-format
+msgid ""
+"%(__title__)s version %(__version__)s\n"
+"%(__copyright__)s by %(__author__)s, %(__credits__)s\n"
+"\n"
+"%(__license__)s"
+msgstr ""
+
+#: florun.py:45
+msgid "Show version"
+msgstr ""
+
+#: florun.py:49
+msgid "Edit specified Florun file"
+msgstr ""
+
+#: florun.py:53
+msgid "Execute specified Florun file"
+msgstr ""
+
+#: florun.py:57
+msgid "Logging level for messages (1:debug - 4:errors)"
+msgstr ""
+
+#: florun.py:116
+#, python-format
+msgid "Exit. (status=%s)"
+msgstr "Fin (status=%s)"

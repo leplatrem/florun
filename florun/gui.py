@@ -1179,35 +1179,35 @@ class MainWindow(QMainWindow):
         # Set graphical properties (positions, etc)
         pos = item.scenePos()
         if item.node.applyPosition(pos.x(), pos.y()):
-            loggui.debug("%s : %s" % (self.tr("Main window: diagram item moved"),item))
+            loggui.debug(self.tr("Main window: diagram item moved : %1").arg(u'%s'%item))
         self.updateSavedState()
             
     def diagramItemChanged(self, item):
         """
         Emitted by {ParameterEditor}
         """
-        loggui.debug("%s : %s" % (self.tr("Main window: diagram item changed"),item))
+        loggui.debug(self.tr("Main window: diagram item changed : %1").arg(u'%s'%item))
         self.updateSavedState()
     
     def diagramItemCreated(self, item):
-        loggui.debug("%s : %s" % (self.tr("Main window: diagram item created"),item))
+        loggui.debug(self.tr("Main window: diagram item created : %1").arg(u'%s'%item))
         self.flow.addNode(item.node)
         self.updateSavedState()
 
     def diagramItemRemoved(self, item):
-        loggui.debug("%s : %s" % (self.tr("Main window: diagram item removed"),item))
+        loggui.debug(self.tr("Main window: diagram item removed : %1").arg(u'%s'%item))
         self.flow.removeNode(item.node)
         self.updateSavedState()
         
     def connectorCreated(self, connector):
-        loggui.debug("%s : %s" % (self.tr("Main window: diagram connector created"),connector))
+        loggui.debug(self.tr("Main window: diagram connector created : %1").arg(u'%s'%connector))
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.addConnector(start, end)
         self.updateSavedState()
     
     def connectorRemoved(self, connector):
-        loggui.debug("%s : %s" % (self.tr("Main window: diagram connector removed"),connector))
+        loggui.debug(self.tr("Main window: diagram connector removed : %1").arg(u'%s'%connector))
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.removeConnector(start, end)
@@ -1343,13 +1343,13 @@ class MainWindow(QMainWindow):
         self.connect(self.process, SIGNAL("readyReadStandardError()"),  self.console.updateConsole)
         # Run command
         florunmain = os.path.join(florun.base_dir, 'florun.py')
-        cmd = 'python %s --level %s --execute "%s"' % (florunmain, self.console.loglevel, self.flow.filename)
-        loggui.debug(self.tr("Start command '%s'" % cmd))
+        cmd = u'python %s --level %s --execute "%s"' % (florunmain, self.console.loglevel, self.flow.filename)
+        loggui.debug(self.tr("Start command '%1'").arg(cmd))
         self.process.start(cmd)
         # Now wait...
         if not self.process.waitForStarted():
             self.process.kill()
-            raise Exception(self.tr("Could not execute flow : %s" % self.process.error())) 
+            raise Exception(self.tr("Could not execute flow : %1").arg(self.process.error())) 
         self.process.waitForFinished()
         self.console.detachProcess()
         self.start.setEnabled(True)
@@ -1368,7 +1368,15 @@ class MainWindow(QMainWindow):
 
 
 def main(args, filename=None):
-    app = QApplication(args)
+    app = QApplication(args) 
+    # Internationalization : Install file according to current locale
+    translator = QTranslator()
+    locale = QLocale.system().name() 
+    if translator.load(os.path.join(florun.locale_dir, locale, "gui")):
+        app.installTranslator(translator)
+    else:
+        loggui.warning("Could not install translator for locale '%s'" % locale)
+    # Build window
     mainWindow = MainWindow(filename)
     mainWindow.setGeometry(100, 100, 800, 500)
     mainWindow.show()

@@ -4,6 +4,7 @@
 import os, sys
 from optparse import OptionParser
 import gettext
+import locale
 
 import florun
 import florun.gui
@@ -105,7 +106,7 @@ def main(prefix):
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":   
     # Paths
     florun_script = sys.argv[0]
     if os.path.islink(florun_script):
