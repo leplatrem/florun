@@ -750,6 +750,7 @@ class ParametersEditor(QGroupBox):
         self.item       = None
         self.nodeId     = None
         self.extrafields = {}
+        self.changed    = False
         
         # Init form with default fields
         self.clear()
@@ -759,10 +760,23 @@ class ParametersEditor(QGroupBox):
         self.nodeId.setEnabled(state)
         #TODO: enable extra widgets
         self.btnDelete.setEnabled(state)
-        self.btnCancel.setEnabled(state)
-        self.btnSave.setEnabled(state)
+        self.btnCancel.setEnabled(state and self.changed)
+        self.btnSave.setEnabled(state and self.changed)
+    
+    def entriesChanged(self):
+        self.changed = True
+        self.enable()
     
     def clear(self):
+        # If item fields were changed ?
+        if self.item is not None and self.changed:
+            answer = MainWindow.messageYesNo(self.tr(u"Apply fields ?"),
+                                             self.tr(u"Some node properties have been modified."),
+                                             self.tr(u"Do you want to apply changes?"))
+            if answer == QMessageBox.Yes:
+                self.save()
+        
+        # Now clear the panel, and reinitialize widgets
         if self.formwidget is not None:
             self.mainlayout.removeWidget(self.formwidget)
             self.formwidget.setParent(None)
@@ -777,6 +791,7 @@ class ParametersEditor(QGroupBox):
         self.mainlayout.insertWidget(0, self.formwidget)
         
         self.item = None
+        self.changed = False
         self.extrafields = {}
         
         # Enable widgets
@@ -787,6 +802,7 @@ class ParametersEditor(QGroupBox):
         self.clear()
         
     def cancel(self):
+        self.changed = False
         self.load(self.item)
 
     def load(self, item):
@@ -803,8 +819,10 @@ class ParametersEditor(QGroupBox):
                 self.formlayout.addRow(qlabel, w)
                 # Connect checkbox event
                 QObject.connect(w.checkbox, SIGNAL("stateChanged(int)"), self.showSlot)
+                QObject.connect(w.edit,     SIGNAL("textChanged(QString)"), self.entriesChanged)
                 # Keep track of associations for saving
                 self.extrafields[interface.name] = w
+        QObject.connect(self.nodeId, SIGNAL("textChanged(QString)"), self.entriesChanged)
         self.enable()
     
     def save(self):
@@ -814,8 +832,10 @@ class ParametersEditor(QGroupBox):
             userentries[name] = w.edit.text()
         # Save Interface values (from GUI to flow)
         self.item.node.applyAttributes(userentries)
+        self.changed = False
         # Update item on scene
         self.item.update()
+        self.enable()
         QObject.emit(self, SIGNAL("diagramItemChanged"), self.item)
     
     def showSlot(self, state):
@@ -1098,6 +1118,17 @@ class MainWindow(QMainWindow):
         msgBox.setInformativeText(infoText)
         msgBox.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         msgBox.setDefaultButton(QMessageBox.Save)
+        return msgBox.exec_()
+    
+    @classmethod
+    def messageYesNo(cls, title, mainText, infoText):
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle(title)
+        msgBox.setIcon(QMessageBox.Question)
+        msgBox.setText(mainText)
+        msgBox.setInformativeText(infoText)
+        msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msgBox.setDefaultButton(QMessageBox.Yes)
         return msgBox.exec_()
     
     @classmethod
