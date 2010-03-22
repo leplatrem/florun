@@ -366,7 +366,7 @@ class Node (object):
         """
         # Use other bool, to not interfere with self.flow.modified
         modified = False
-        if x != self.graphicalprops['x'] or y != self.graphicalprops['y']:
+        if x != self.graphicalprops.get('x') or y != self.graphicalprops.get('y'):
             modified = True
             self.flow.modified = True
         self.graphicalprops['x'] = x
@@ -528,7 +528,7 @@ class InterfaceList(Interface):
 
 
 class ProcessNode (Node):
-    category = _(u"Basic Nodes")
+    category = _(u"Basic")
     label    = _(u"Process")
     description = _(u"Execute a shell command")
     
@@ -551,7 +551,7 @@ class ProcessNode (Node):
 
 
 class InputNode (Node):
-    category = _(u"Input Nodes")
+    category = _(u"Input")
     label    = _(u"")
 
 
@@ -640,7 +640,7 @@ class FileListInputNode (InputNode):
 #
 
 class OutputNode (Node):
-    category = _(u"Output Nodes")
+    category = _(u"Output")
     label    = _(u"")
 
 

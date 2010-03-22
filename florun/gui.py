@@ -708,12 +708,12 @@ class ParameterField(QWidget):
         if self.interface.slot: self.edit.setText('')
 
 
-class ParametersEditor(QGroupBox):
+class ParametersEditor(QWidget):
     def __init__(self, parent, scene, *args):
-        QGroupBox.__init__(self, *args)
+        QWidget.__init__(self, *args)
         self.parent = parent
         self.scene = scene
-        
+               
         # Actions
         self.btnDelete = QPushButton(self.tr("Delete"))
         self.btnDelete.setIcon(self.parent.loadIcon('edit-delete')) 
@@ -721,27 +721,41 @@ class ParametersEditor(QGroupBox):
         self.btnCancel.setIcon(self.parent.loadIcon('edit-undo'))
         self.btnSave = QPushButton(self.tr("Apply"))
         self.btnSave.setIcon(self.parent.loadIcon('dialog-apply'))
+        # slots
+        QObject.connect(self.btnDelete, SIGNAL("clicked()"), self.delete)
+        QObject.connect(self.btnCancel, SIGNAL("clicked()"), self.cancel)
+        QObject.connect(self.btnSave,   SIGNAL("clicked()"), self.save)
         
         # Buttons
         buttonslayout = QHBoxLayout()
         buttonslayout.addWidget(self.btnDelete)
         buttonslayout.addWidget(self.btnCancel)
         buttonslayout.addWidget(self.btnSave)
-        
-        # Main Layout
-        self.mainlayout = QVBoxLayout()
-        self.mainlayout.addStretch()
-        
         buttonswidget = QWidget()
         buttonswidget.setLayout(buttonslayout)
-        self.mainlayout.addWidget(buttonswidget)
         
-        self.setTitle(self.tr("Parameters"))
-        self.setLayout(self.mainlayout)
-        # Actions
-        QObject.connect(self.btnDelete, SIGNAL("clicked()"), self.delete)
-        QObject.connect(self.btnCancel, SIGNAL("clicked()"), self.cancel)
-        QObject.connect(self.btnSave,   SIGNAL("clicked()"), self.save)
+        # Parameters Layout
+        self.paramlayout = QVBoxLayout()
+        self.paramlayout.addStretch()
+        self.paramlayout.addWidget(buttonswidget)
+        parameterbox = QGroupBox()
+        parameterbox.setTitle(self.tr("Parameters"))
+        parameterbox.setLayout(self.paramlayout)     
+        
+        # Information Layout
+        self.lbldescription = QLabel()
+        self.lbldescription.setWordWrap(True)
+        
+        infolayout = QVBoxLayout()
+        infolayout.addWidget(self.lbldescription)
+        self.informationbox = QGroupBox()
+        self.informationbox.setLayout(infolayout)
+        
+        mainlayout = QVBoxLayout()
+        mainlayout.addWidget(self.informationbox)
+        mainlayout.addWidget(parameterbox)
+
+        self.setLayout(mainlayout)   
         
         # Form item
         self.formwidget = None
@@ -754,7 +768,7 @@ class ParametersEditor(QGroupBox):
         
         # Init form with default fields
         self.clear()
-
+    
     def enable(self):
         state = self.item is not None
         self.nodeId.setEnabled(state)
@@ -778,17 +792,20 @@ class ParametersEditor(QGroupBox):
         
         # Now clear the panel, and reinitialize widgets
         if self.formwidget is not None:
-            self.mainlayout.removeWidget(self.formwidget)
+            self.paramlayout.removeWidget(self.formwidget)
             self.formwidget.setParent(None)
         
         # Common fields
+        self.lbldescription.setText('')
+        self.informationbox.setTitle(self.tr("Node"))
+        
         self.nodeId = QLineEdit('', self)
         self.formlayout = QFormLayout()
         self.formlayout.addRow(self.tr("Id"), self.nodeId)
         
         self.formwidget = QWidget()
         self.formwidget.setLayout(self.formlayout)
-        self.mainlayout.insertWidget(0, self.formwidget)
+        self.paramlayout.insertWidget(0, self.formwidget)
         
         self.item = None
         self.changed = False
@@ -808,6 +825,10 @@ class ParametersEditor(QGroupBox):
     def load(self, item):
         self.clear()
         self.item = item
+        
+        self.informationbox.setTitle(item.node.category + " : " + item.node.label)
+        self.lbldescription.setText(item.node.description)
+        
         self.nodeId.setText(item.node.id)
         # For each node interface, add a widget
         for interface in item.node.interfaces:
