@@ -51,6 +51,13 @@ class Flow(object):
         @type node : L{Node}
         """
         self.modified = True
+        # Remove all connectors
+        for interface in node.interfaces:
+            for relative in interface.successors:
+                self.removeConnector(interface, relative)
+            for relative in interface.predecessors:
+                self.removeConnector(relative, interface)
+        # Remove the node itself
         self.nodes.remove(node)
     
     def randomId(self, node):
@@ -244,7 +251,9 @@ class Interface(object):
     def __init__(self, node, name, **kwargs):
         self.node = node
         self.name = name
+        """@type successors: list of {Interface}""" 
         self.successors = []
+        """@type predecessors: list of {Interface}"""
         self.predecessors = []
         self.type    = kwargs.get('type', self.PARAMETER)
         self.slot    = kwargs.get('slot', True)
@@ -338,6 +347,31 @@ class Node (object):
         self.__readyinterfaces = {}
         self.canRun  = threading.Event()
         self.running = False
+    
+    def applyAttributes(self, entries):
+        """
+        @type entries : dict
+        """
+        for name, value in entries.items():
+            if name == 'id':
+                self.id = value
+            else:
+                i = self.findInterface(name)
+                i.value = value
+        self.flow.modified = True
+        
+    def applyPosition(self, x, y):
+        """
+        @return: True if modified.
+        """
+        # Use other bool, to not interfere with self.flow.modified
+        modified = False
+        if x != self.graphicalprops['x'] or y != self.graphicalprops['y']:
+            modified = True
+            self.flow.modified = True
+        self.graphicalprops['x'] = x
+        self.graphicalprops['y'] = y
+        return modified
     
     @property
     def classname(self):

@@ -483,7 +483,7 @@ class DiagramScene(QGraphicsScene):
         self.addItem(item)
         item.update()
         if emit:
-            QObject.emit(self.window, SIGNAL("diagramItemCreated"), item)
+            QObject.emit(self, SIGNAL("diagramItemCreated"), item)
         return item
         
     def removeDiagramItem(self, item):
@@ -491,7 +491,7 @@ class DiagramScene(QGraphicsScene):
             for connector in slot.connectors:
                 self.removeConnector(connector)
         self.removeItem(item)
-        QObject.emit(self.window, SIGNAL("diagramItemRemoved"), item)
+        QObject.emit(self, SIGNAL("diagramItemRemoved"), item)
 
     def addConnector(self, startSlot, endSlot=None, emit=True):
         connector = DiagramConnector()
@@ -502,7 +502,7 @@ class DiagramScene(QGraphicsScene):
             endSlot.connect(connector, False)
             loggui.debug("%s %s" % (self.tr(u"Connector added"), connector))
             if emit:
-                QObject.emit(self.window, SIGNAL("connectorCreated"), connector)
+                QObject.emit(self, SIGNAL("connectorCreated"), connector)
         connector.updatePosition()
         return connector
 
@@ -512,7 +512,7 @@ class DiagramScene(QGraphicsScene):
         self.connectorLeaveEvent(connector)
         if event:
             loggui.debug("%s %s" % (self.tr(u"Connector removed"), connector))
-            QObject.emit(self.window, SIGNAL("connectorRemoved"), connector)
+            QObject.emit(self, SIGNAL("connectorRemoved"), connector)
 
     def findDiagramItemByNode(self, node):
         for i in self.items():
@@ -558,13 +558,19 @@ class DiagramScene(QGraphicsScene):
             else:
                 # Mouse was released outside slot
                 self.removeConnector(self.connector)
+        # Moved item ?
+        pos = mouseEvent.scenePos()
+        for i in self.items(pos):
+            if issubclass(i.__class__, DiagramItem):
+                QObject.emit(self, SIGNAL("diagramItemMoved"), i)
+        # Reinitialize situation
         self.connector = None
         self.slot = None
         QGraphicsScene.mouseReleaseEvent(self, mouseEvent)
     
     def itemSelected(self, item):
         if issubclass(item.__class__, DiagramItem):
-            QObject.emit(self.window, SIGNAL("selectedChanged"), item)
+            QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
 
 
 """
@@ -710,11 +716,11 @@ class ParametersEditor(QGroupBox):
         
         # Actions
         self.btnDelete = QPushButton(self.tr("Delete"))
-        self.btnDelete.setIcon(self.parent.loadIcon(QStyle.SP_TrashIcon)) 
+        self.btnDelete.setIcon(self.parent.loadIcon('edit-delete')) 
         self.btnCancel = QPushButton(self.tr("Undo"))
-        self.btnCancel.setIcon(self.parent.loadIcon(QStyle.SP_DialogCancelButton))
+        self.btnCancel.setIcon(self.parent.loadIcon('edit-undo'))
         self.btnSave = QPushButton(self.tr("Apply"))
-        self.btnSave.setIcon(self.parent.loadIcon(QStyle.SP_DialogOkButton))
+        self.btnSave.setIcon(self.parent.loadIcon('dialog-apply'))
         
         # Buttons
         buttonslayout = QHBoxLayout()
@@ -740,6 +746,7 @@ class ParametersEditor(QGroupBox):
         # Form item
         self.formwidget = None
         self.formlayout = None
+        """@type item : {DiagramItem}"""
         self.item       = None
         self.nodeId     = None
         self.extrafields = {}
@@ -801,15 +808,15 @@ class ParametersEditor(QGroupBox):
         self.enable()
     
     def save(self):
-        self.item.node.id = self.nodeId.text()
+        userentries = {}
+        userentries['id'] = self.nodeId.text()
+        for name, w in self.extrafields.items():
+            userentries[name] = w.edit.text()
         # Save Interface values (from GUI to flow)
-        for interface in self.item.node.interfaces:
-            w = self.extrafields.get(interface.name, None)
-            if w is not None:
-                interface.value = w.edit.text()
-            else:
-                loggui.warning("Why cannot find '%s' among fields ?" % interface.name)
+        self.item.node.applyAttributes(userentries)
+        # Update item on scene
         self.item.update()
+        QObject.emit(self, SIGNAL("diagramItemChanged"), self.item)
     
     def showSlot(self, state):
         for w in self.extrafields.values():
@@ -829,9 +836,9 @@ class FlowConsole(QWidget):
         self.process = None
         
         self.cbloglevel = QComboBox()
-        self.cbloglevel.insertItem(0, self.tr("Errors only"), logcore.ERROR)
-        self.cbloglevel.insertItem(1, self.tr("Warnings"),    logcore.WARNING)
-        self.cbloglevel.insertItem(2, self.tr("Information"), logcore.INFO)
+        self.cbloglevel.insertItem(0, self.tr("Errors only"),    logcore.ERROR)
+        self.cbloglevel.insertItem(1, self.tr("Warnings"),       logcore.WARNING)
+        self.cbloglevel.insertItem(2, self.tr("Information"),    logcore.INFO)
         self.cbloglevel.insertItem(3, self.tr("Debug messages"), logcore.DEBUG)
         self.cbloglevel.setCurrentIndex(2)
         
@@ -941,11 +948,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.maintabs)
         
         # Connect events
-        QObject.connect(self, SIGNAL("selectedChanged"),    self.diagramItemSelected)
-        QObject.connect(self, SIGNAL("diagramItemCreated"), self.diagramItemCreated)
-        QObject.connect(self, SIGNAL("diagramItemRemoved"), self.diagramItemRemoved)
-        QObject.connect(self, SIGNAL("connectorCreated"), self.connectorCreated)
-        QObject.connect(self, SIGNAL("connectorRemoved"), self.connectorRemoved)
+        QObject.connect(self.scene, SIGNAL("DiagramItemSelected"),self.diagramItemSelected)
+        QObject.connect(self.scene, SIGNAL("diagramItemCreated"), self.diagramItemCreated)
+        QObject.connect(self.scene, SIGNAL("diagramItemRemoved"), self.diagramItemRemoved)
+        QObject.connect(self.scene, SIGNAL("connectorCreated"),   self.connectorCreated)
+        QObject.connect(self.scene, SIGNAL("connectorRemoved"),   self.connectorRemoved)
+        QObject.connect(self.scene, SIGNAL("diagramItemMoved"),   self.diagramItemMoved)
+        
+        QObject.connect(self.parameters, SIGNAL("diagramItemChanged"), self.diagramItemChanged)
 
     def updateTitle(self):
         filename = self.flow.filename
@@ -964,13 +974,28 @@ class MainWindow(QMainWindow):
         @type iconid : str
         @rtype: L{QtGui.QIcon}
         """
-        #style = self.style()
-        #return style.standardIcon(pixmap)
+        # Try Themed Icons (Qt >= 4.6)
         try:
             if QIcon.hasThemeIcon(iconid):
                 return QIcon.fromTheme(iconid)
         except AttributeError, e:
             pass
+        
+        # Else                                   
+        # Try in Qt default icons
+        lookup = {'edit-delete':      QStyle.SP_TrashIcon,
+                  'edit-undo':        QStyle.SP_DialogCancelButton,
+                  'dialog-apply':     QStyle.SP_DialogOkButton,
+                  #'document-new':    QStyle.SP_DialogResetButton,
+                  'document-open':    QStyle.SP_DialogOpenButton,
+                  'document-save':    QStyle.SP_DialogSaveButton,
+                  'application-exit': QStyle.SP_DialogCloseButton}
+        qticonid = lookup.get(iconid)
+        if qticonid is not None:
+            style = self.style()
+            return style.standardIcon(qticonid)
+        
+        # Else
         # Guess path of icon
         base = '/usr/share/icons/'
         find = QProcess()
@@ -1026,13 +1051,15 @@ class MainWindow(QMainWindow):
         self.move((screen.width()-size.width())/2, (screen.height()-size.height())/2)
         
     def buildMenuToolbar(self):
+        """
+        Wait for more families of actions to install menubar
         menubar = self.menuBar()
         file = menubar.addMenu(self.tr('&Flow'))
         file.addAction(self.new)
         file.addAction(self.open)
         file.addAction(self.save)
         file.addAction(self.exit)
-
+        """
         toolbar = self.addToolBar(self.tr('Main'))
         toolbar.addAction(self.new)
         toolbar.addAction(self.open)
@@ -1063,13 +1090,25 @@ class MainWindow(QMainWindow):
         errorbox.exec_()
 
     @classmethod
-    def messageCancelYesNo(cls, mainText, infoText):
+    def messageCancelSaveDiscard(cls, title, mainText, infoText):
         msgBox = QMessageBox()
+        msgBox.setWindowTitle(title)
         msgBox.setIcon(QMessageBox.Question)
         msgBox.setText(mainText)
         msgBox.setInformativeText(infoText)
         msgBox.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         msgBox.setDefaultButton(QMessageBox.Save)
+        return msgBox.exec_()
+    
+    @classmethod
+    def messageCancelYesNo(cls, title, mainText, infoText):
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle(title)
+        msgBox.setIcon(QMessageBox.Question)
+        msgBox.setText(mainText)
+        msgBox.setInformativeText(infoText)
+        msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        msgBox.setDefaultButton(QMessageBox.Yes)
         return msgBox.exec_()
 
     """
@@ -1083,6 +1122,20 @@ class MainWindow(QMainWindow):
             self.parameters.load(item)
         else:
             self.parameters.clear()
+    
+    def diagramItemMoved(self, item):
+        # Set graphical properties (positions, etc)
+        pos = item.scenePos()
+        if item.node.applyPosition(pos.x(), pos.y()):
+            loggui.debug("%s : %s" % (self.tr("Main window: diagram item moved"),item))
+        self.updateSavedState()
+            
+    def diagramItemChanged(self, item):
+        """
+        Emitted by {ParameterEditor}
+        """
+        loggui.debug("%s : %s" % (self.tr("Main window: diagram item changed"),item))
+        self.updateSavedState()
     
     def diagramItemCreated(self, item):
         loggui.debug("%s : %s" % (self.tr("Main window: diagram item created"),item))
@@ -1121,8 +1174,9 @@ class MainWindow(QMainWindow):
         """
         # Ask to save if flow was modified
         if self.flow.modified:
-            answer = self.messageCancelYesNo(self.tr(u"The flow has been modified."),
-                                             self.tr("Do you want to save your changes?"))
+            answer = self.messageCancelSaveDiscard(self.tr(u"Save flow ?"),
+                                                   self.tr(u"The flow has been modified."),
+                                                   self.tr("Do you want to save your changes?"))
             if answer == QMessageBox.Save:
                 if not self.saveFlow():
                     event.ignore() # Was not saved, don't close
@@ -1139,9 +1193,10 @@ class MainWindow(QMainWindow):
         # Ask to save if flow was modified
         if self.flow is not None:
             if self.flow.modified:
-                answer = self.messageCancelYesNo(self.tr(u"The flow has been modified."),
-                                                 self.tr("Do you want to save your changes?"))
-                if answer == QMessageBox.Save:
+                answer = self.messageCancelYesNo(self.tr(u"Save flow ?"),
+                                                       self.tr(u"The flow has been modified."),
+                                                       self.tr("Do you want to save your changes?"))
+                if answer == QMessageBox.Yes:
                     if not self.saveFlow():
                         return # Was not saved, don't clear.
                 if answer == QMessageBox.Cancel:
@@ -1156,6 +1211,17 @@ class MainWindow(QMainWindow):
         Load a flow from a file.
         """
         if filename is None:
+            # Ask to save if flow was modified
+            if self.flow is not None:
+                if self.flow.modified:
+                    answer = self.messageCancelYesNo(self.tr(u"Save flow ?"),
+                                                     self.tr(u"The flow has been modified."),
+                                                     self.tr("Do you want to save your changes?"))
+                    if answer == QMessageBox.Yes:
+                        if not self.saveFlow():
+                            return # Was not saved, don't open.
+                    if answer == QMessageBox.Cancel:
+                        return # Don't open
             # Ask the user
             filename = unicode(QFileDialog.getOpenFileName(self, self.tr('Open file'), self.basedir))
             if filename == '': # User clicked cancel
@@ -1194,12 +1260,6 @@ class MainWindow(QMainWindow):
             if ask == '': # User clicked cancel
                 return False
             self.flow.filename = ask
-        # Set graphical properties (positions, etc)
-        for item in self.scene.items():
-            if issubclass(item.__class__, DiagramItem):
-                pos = item.scenePos()
-                item.node.graphicalprops['x'] = pos.x()
-                item.node.graphicalprops['y'] = pos.y()
         loggui.debug(u"Save file '%s'..." % self.flow.filename)
         self.flow.save()
         self.updateSavedState()
@@ -1210,10 +1270,14 @@ class MainWindow(QMainWindow):
         Run current flow
         """
         if self.flow.modified:
-            answer = MainWindow.messageCancelYesNo(self.tr(u"The flow has been modified."),
-                                             self.tr("Do you want to save your changes?"))
-            if answer == QMessageBox.Save:
+            answer = MainWindow.messageCancelYesNo(self.tr(u"Save flow ?"),
+                                                   self.tr(u"The flow has been modified."),
+                                                   self.tr("Do you want to save your changes?"))
+            if answer == QMessageBox.Yes:
                 self.saveFlow()
+            elif answer == QMessageBox.Cancel:
+                loggui.debug(self.tr("Flow start canceled by user."))
+                return
             
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)

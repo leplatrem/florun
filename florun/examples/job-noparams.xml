@@ -9,8 +9,8 @@
 		</interface>
 	</node>
 	<node id="tail" type="ProcessNode">
-		<graphproperty name="y" value="-588.0"/>
-		<graphproperty name="x" value="-244.0"/>
+		<graphproperty name="y" value="-589.0"/>
+		<graphproperty name="x" value="-241.0"/>
 		<interface name="stdin"/>
 		<interface name="stdout">
 			<successor interface="stdin" node="head"/>
@@ -20,8 +20,8 @@
 		<interface name="stderr"/>
 	</node>
 	<node id="head" type="ProcessNode">
-		<graphproperty name="y" value="-477.0"/>
-		<graphproperty name="x" value="-243.0"/>
+		<graphproperty name="y" value="-476.0"/>
+		<graphproperty name="x" value="-241.0"/>
 		<interface name="stdin"/>
 		<interface name="stdout">
 			<successor interface="input" node="Write"/>
@@ -35,6 +35,11 @@
 		<graphproperty name="y" value="-323.0"/>
 		<graphproperty name="x" value="-412.0"/>
 		<interface name="filepath" slot="False" value="/tmp/passwd"/>
+		<interface name="input"/>
+	</node>
+	<node id="Print" type="CommandLineStdoutOutputNode">
+		<graphproperty name="y" value="-318.0"/>
+		<graphproperty name="x" value="-147.0"/>
 		<interface name="input"/>
 	</node>
 </flow>
