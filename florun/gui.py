@@ -3,7 +3,7 @@ import os, sys
 import cStringIO, traceback
 
 from PyQt4.QtCore import *
-from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QIcon, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap 
+from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QIcon, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor 
 from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
@@ -27,6 +27,7 @@ class SlotItem(QGraphicsEllipseItem):
     
     def __init__(self, parent, interface, textposition = None):
         QGraphicsEllipseItem.__init__(self, parent)
+        assert issubclass(parent.__class__, DiagramItem)
         self.parent = parent
         self.connectors = []
         # Underlying object
@@ -37,6 +38,8 @@ class SlotItem(QGraphicsEllipseItem):
         if textposition is None:
             textposition = SlotItem.TEXT_RIGHT
         self.textposition = textposition
+        # Events are handled by parent item
+        self.setAcceptHoverEvents(True)
 
     def buildItem(self):
         color = self.COLORS.values()[0]
@@ -82,7 +85,7 @@ class SlotItem(QGraphicsEllipseItem):
         else:
             connector.endItem = self
         self.connectors.append(connector)
-        self.highlight = True
+        self.highlight = False
 
     def disconnect(self, connector):
         self.connectors.remove(connector)
@@ -183,11 +186,13 @@ class DiagramItem(QGraphicsItemGroup):
         self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setHandlesChildEvents(True)
         self.text = None
         # Underlying object
         self._node = None
         self.buildItem()
         self.slotitems = []
+        self._hoverslot = None
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -261,31 +266,37 @@ class DiagramItem(QGraphicsItemGroup):
 
     def moveEvent(self, event):
         """
-        Highlight slots on mouse hover
+        Called by DiagramItem::hoverMoveEvent() and DiagramScene::mouseMoveEvent() 
         """
+        # Check if mouse left or entered a slot
+        hoverslot = None
         for s in self.slotitems:
-            #slot_pos = self.mapToItem(s, event.pos())
             rect = s.sceneBoundingRect()
             if rect.contains(event.scenePos()):
-                if not s.highlight:
-                    QObject.emit(self.scene(), SIGNAL("slotEnterEvent"), s)
-                s.highlight = True
-            else:
-                if s.highlight:
-                    QObject.emit(self.scene(), SIGNAL("slotLeaveEvent"), s)
-                s.highlight = False
+                hoverslot = s
+        # Left
+        if hoverslot is None and self._hoverslot is not None:
+            QObject.emit(self.scene(), SIGNAL("slotLeaveEvent"), self._hoverslot)
+        # Entered
+        if hoverslot is not None and self._hoverslot is None:
+            QObject.emit(self.scene(), SIGNAL("slotEnterEvent"), hoverslot)
+        self._hoverslot = hoverslot
         self.update()
 
     def hoverMoveEvent(self, event):
         self.moveEvent(event)
         QGraphicsItemGroup.hoverMoveEvent(self, event)
-
+        
     def hoverEnterEvent(self, event):
-        #self.showSlots()
         QObject.emit(self.scene(), SIGNAL("itemEnterEvent"), self)
         QGraphicsItemGroup.hoverEnterEvent(self, event)
     
     def hoverLeaveEvent(self, event):
+        # If was over slot, emit that left
+        if self._hoverslot is not None:
+            QObject.emit(self.scene(), SIGNAL("slotLeaveEvent"), self._hoverslot)
+        self._hoverslot = None
+        # Item was left
         QObject.emit(self.scene(), SIGNAL("itemLeaveEvent"), self)
         QGraphicsItemGroup.hoverLeaveEvent(self, event)
 
@@ -462,14 +473,16 @@ class DiagramScene(QGraphicsScene):
 
     def slotEnterEvent(self, slot):
         self.view.setCursor(Qt.CrossCursor)
+        slot.highlight = True
         self.slot = slot
 
     def slotLeaveEvent(self, slot):
         self.view.setCursor(Qt.ArrowCursor)
+        slot.highlight = False
         self.slot = None
 
     def connectorEnterEvent(self, connector):
-        self.view.setCursor(Qt.CrossCursor)
+        self.view.setCursor(MainWindow.ScissorsCursor)
         self.connectorHover = connector
 
     def connectorLeaveEvent(self, connector):
@@ -935,8 +948,13 @@ class FlowConsole(QWidget):
 """
 
 class MainWindow(QMainWindow):
+    """
+    @type ScissorsCursor : {QCursor}
+    """
+    ScissorsCursor = None
     def __init__(self, filename=None, *args):
         QMainWindow.__init__(self, *args)
+        MainWindow.ScissorsCursor = QCursor(self.loadIcon('cursor-scissors').pixmap(QSize(24,24)))
         self.apptitle = florun.__title__
         # Main attributes 
         self.basedir = florun.base_dir
@@ -1038,15 +1056,15 @@ class MainWindow(QMainWindow):
         
         # Else
         # Guess path of icon
-        base = '/usr/share/icons/'
-        find = QProcess()
-        find.start('find %s -name "%s*"' % (base, iconid))
-        if find.waitForFinished():
-            list = QString(find.readAllStandardOutput()).split("\n")
-            if len(list) > 0:
-                path = list[0]
-                loggui.debug("Load icon file from '%s'" % path)
-                return QIcon(QPixmap(path))
+        for base in [florun.icons_dir, '/usr/share/icons/']:
+            find = QProcess()
+            find.start('find %s -name "%s*"' % (base, iconid))
+            if find.waitForFinished():
+                list = QString(find.readAllStandardOutput()).split("\n")
+                if len(list) > 0:
+                    path = list[0]
+                    loggui.debug("Load icon file from '%s'" % path)
+                    return QIcon(QPixmap(path))
         raise Exception("Could not find icon '%s'" % iconid)
 
     def buildActions(self):
@@ -1372,7 +1390,7 @@ def main(args, filename=None):
     # Internationalization : Install file according to current locale
     translator = QTranslator()
     locale = QLocale.system().name() 
-    if translator.load(os.path.join(florun.locale_dir, locale, "gui")):
+    if translator.load(os.path.join(florun.locale_dir, '%s'%locale, "gui")):
         app.installTranslator(translator)
     else:
         loggui.warning("Could not install translator for locale '%s'" % locale)
