@@ -37,9 +37,4 @@
 		<interface name="filepath" slot="False" value="/tmp/passwd"/>
 		<interface name="input"/>
 	</node>
-	<node id="Print" type="CommandLineStdoutOutputNode">
-		<graphproperty name="y" value="-318.0"/>
-		<graphproperty name="x" value="-147.0"/>
-		<interface name="input"/>
-	</node>
 </flow>

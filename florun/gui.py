@@ -1018,6 +1018,7 @@ class MainWindow(QMainWindow):
     def updateSavedState(self):
         self.updateTitle()
         self.save.setEnabled(self.flow.modified)
+        #self.start.setEnabled(not self.flow.modified)
     
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -1208,6 +1209,12 @@ class MainWindow(QMainWindow):
         """
         Run current flow
         """
+        if self.flow.modified:
+            answer = MainWindow.messageCancelYesNo(self.tr(u"The flow has been modified."),
+                                             self.tr("Do you want to save your changes?"))
+            if answer == QMessageBox.Save:
+                self.saveFlow()
+            
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
         # Disable start
