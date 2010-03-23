@@ -125,13 +125,12 @@ class DiagramConnector(QGraphicsLineItem):
 
     def __unicode__(self):
         return u"%s - %s" % (self.startItem, self.endItem)
-
+    
     def canConnect(self, endItem):
         """
         Test if startitem and specified endslot are compatible
         @rtype boolean
         """
-        #TODO: return False if already exists
         return self.startItem.interface.canConnectTo(endItem.interface)
 
     def disconnect(self):
@@ -420,7 +419,7 @@ class DiagramScene(QGraphicsScene):
         v = self.views()
         if len(v) > 0:
             return v[0]
-        return None
+        return None        
     
     def dragEnterEvent(self, event):
         QGraphicsScene.dragEnterEvent(self, event)
@@ -540,12 +539,20 @@ class DiagramScene(QGraphicsScene):
             self.removeConnector(self.connectorHover, True)
         elif self.connector is not None:
             # Create connector
-            if self.slot is not None:
+            if self.slot is not None:              
                 if self.connector.canConnect(self.slot):
-                    # New connector, remove the one being drawn
-                    self.removeConnector(self.connector)
-                    # Add the new one with both ends
-                    self.addConnector(self.connector.startItem, self.slot)
+                    exists = False
+                    for i in [item for item in self.items() if issubclass(item.__class__,DiagramConnector)]:
+                        if i.startItem == self.connector.startItem and i.endItem == self.slot:
+                            exists = True
+                    if not exists:
+                        # New connector, remove the one being drawn
+                        self.removeConnector(self.connector)
+                        # Add the new one with both ends
+                        self.addConnector(self.connector.startItem, self.slot)
+                    else:
+                        self.window.setStatusMessage(self.tr("Connector already exists"))
+                        self.removeConnector(self.connector)
                 else:
                     # For some reason, start and end slots could not be connected.
                     self.window.setStatusMessage(self.tr("Incompatible slots"))
@@ -1011,7 +1018,7 @@ class MainWindow(QMainWindow):
             filename = "*"+filename
         self.setWindowTitle("%s - %s" % (filename, self.apptitle))
 
-    def setStatusMessage(self, txt, timeout=3000):
+    def setStatusMessage(self, txt, timeout=6000):
         self.statusBar().showMessage(txt, timeout)
 
     def loadIcon(self, iconid):
