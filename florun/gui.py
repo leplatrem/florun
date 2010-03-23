@@ -38,8 +38,6 @@ class SlotItem(QGraphicsEllipseItem):
         if textposition is None:
             textposition = SlotItem.TEXT_RIGHT
         self.textposition = textposition
-        # Events are handled by parent item
-        self.setAcceptHoverEvents(True)
 
     def buildItem(self):
         color = self.COLORS.values()[0]
@@ -133,6 +131,7 @@ class DiagramConnector(QGraphicsLineItem):
         Test if startitem and specified endslot are compatible
         @rtype boolean
         """
+        #TODO: return False if already exists
         return self.startItem.interface.canConnectTo(endItem.interface)
 
     def disconnect(self):
@@ -165,7 +164,13 @@ class DiagramConnector(QGraphicsLineItem):
             self.moveEnd(oripos)
     
     def hoverEnterEvent(self, event):
-        QObject.emit(self.scene(), SIGNAL("connectorEnterEvent"), self)
+        # Do not consider hovering connector, if over slot.
+        hoverSlot = False
+        for i in self.scene().items(event.scenePos()):
+            if issubclass(i.__class__, SlotItem):
+                hoverSlot = True
+        if not hoverSlot:
+            QObject.emit(self.scene(), SIGNAL("connectorEnterEvent"), self)
         QGraphicsLineItem.hoverEnterEvent(self, event)
     
     def hoverLeaveEvent(self, event):
@@ -183,16 +188,15 @@ class DiagramItem(QGraphicsItemGroup):
     
     def __init__(self, *args):
         QGraphicsItemGroup.__init__(self, *args)
-        self.setAcceptHoverEvents(True)
+        #self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        self.setHandlesChildEvents(True)
+        #self.setHandlesChildEvents(True)
         self.text = None
         # Underlying object
         self._node = None
         self.buildItem()
         self.slotitems = []
-        self._hoverslot = None
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -263,42 +267,6 @@ class DiagramItem(QGraphicsItemGroup):
             if s.interface == interface:
                 return s
         raise Exception(u"SlotItem with interface %s not found on %s" % (interface, self))
-
-    def moveEvent(self, event):
-        """
-        Called by DiagramItem::hoverMoveEvent() and DiagramScene::mouseMoveEvent() 
-        """
-        # Check if mouse left or entered a slot
-        hoverslot = None
-        for s in self.slotitems:
-            rect = s.sceneBoundingRect()
-            if rect.contains(event.scenePos()):
-                hoverslot = s
-        # Left
-        if hoverslot is None and self._hoverslot is not None:
-            QObject.emit(self.scene(), SIGNAL("slotLeaveEvent"), self._hoverslot)
-        # Entered
-        if hoverslot is not None and self._hoverslot is None:
-            QObject.emit(self.scene(), SIGNAL("slotEnterEvent"), hoverslot)
-        self._hoverslot = hoverslot
-        self.update()
-
-    def hoverMoveEvent(self, event):
-        self.moveEvent(event)
-        QGraphicsItemGroup.hoverMoveEvent(self, event)
-        
-    def hoverEnterEvent(self, event):
-        QObject.emit(self.scene(), SIGNAL("itemEnterEvent"), self)
-        QGraphicsItemGroup.hoverEnterEvent(self, event)
-    
-    def hoverLeaveEvent(self, event):
-        # If was over slot, emit that left
-        if self._hoverslot is not None:
-            QObject.emit(self.scene(), SIGNAL("slotLeaveEvent"), self._hoverslot)
-        self._hoverslot = None
-        # Item was left
-        QObject.emit(self.scene(), SIGNAL("itemLeaveEvent"), self)
-        QGraphicsItemGroup.hoverLeaveEvent(self, event)
 
     def addSlots(self):
         # Add them all
@@ -441,6 +409,8 @@ class DiagramScene(QGraphicsScene):
         self.connector = None
         self.slot = None
         self.connectorHover = None
+        #TODO: remove slotHover, redundancy with DiagramItem:hoverEvents code.
+        self.slotHover = None
 
     @property
     def window(self):
@@ -477,7 +447,8 @@ class DiagramScene(QGraphicsScene):
         self.slot = slot
 
     def slotLeaveEvent(self, slot):
-        self.view.setCursor(Qt.ArrowCursor)
+        if self.connector is None:
+            self.view.setCursor(Qt.ArrowCursor)
         slot.highlight = False
         self.slot = None
 
@@ -544,11 +515,23 @@ class DiagramScene(QGraphicsScene):
         # If connector is not None, the user is drawing
         if self.connector is not None:
             self.connector.moveEnd(pos)
-        # Gives sub items mouse move if mouse pressed
-        if mouseEvent.buttons() != Qt.NoButton :
-            for i in self.items(pos):
-                if issubclass(i.__class__, DiagramItem):
-                    i.moveEvent(mouseEvent)
+
+        #TODO: fix this nicely !
+        # This is due to this problem : http://ubuntuforums.org/showthread.php?p=9013506
+        # Check if mouse left or entered a slot
+        hoverslot = None
+        for i in self.items(pos):
+            if issubclass(i.__class__, SlotItem):
+                hoverslot = i
+        # Left
+        if hoverslot is None and self.slotHover is not None:
+            QObject.emit(self, SIGNAL("slotLeaveEvent"), self.slotHover)
+        # Entered
+        if hoverslot is not None and self.slotHover is None:
+            QObject.emit(self, SIGNAL("slotEnterEvent"), hoverslot)
+        self.slotHover = hoverslot
+        
+        # If not drawing connector, items are movable
         if self.connector is None:
             QGraphicsScene.mouseMoveEvent(self, mouseEvent)
 
@@ -1063,9 +1046,10 @@ class MainWindow(QMainWindow):
                 list = QString(find.readAllStandardOutput()).split("\n")
                 if len(list) > 0:
                     path = list[0]
-                    loggui.debug("Load icon file from '%s'" % path)
-                    return QIcon(QPixmap(path))
-        raise Exception("Could not find icon '%s'" % iconid)
+                    if path != '':
+                        loggui.debug("Load icon file from '%s'" % path)
+                        return QIcon(QPixmap(path))
+        return QIcon(QPixmap())
 
     def buildActions(self):
         self.new = QAction(self.loadIcon('document-new'), self.tr('New'), self)
