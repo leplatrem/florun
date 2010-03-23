@@ -87,7 +87,7 @@ class SlotItem(QGraphicsEllipseItem):
 
     def disconnect(self, connector):
         self.connectors.remove(connector)
-        self.highlight = len(self.connectors) > 0
+        self.highlight = False
 
     def textOffset(self):
         textrect = self.text.boundingRect()
@@ -409,7 +409,6 @@ class DiagramScene(QGraphicsScene):
         self.connector = None
         self.slot = None
         self.connectorHover = None
-        #TODO: remove slotHover, redundancy with DiagramItem:hoverEvents code.
         self.slotHover = None
 
     @property
@@ -629,11 +628,16 @@ class LibraryItem(QFrame):
         layout.addWidget(title, 1, 0, Qt.AlignTop|Qt.AlignHCenter)
         self.setLayout(layout)
         self.setMaximumSize(80, 80)
+        self._window = None
     
     @property
     def window(self):
-        #TODO: what better way ?
-        return self.parent().parent().parent().parent().parent().parent().parent().parent()
+        if self._window is None:
+            widget = self.parent()
+            while widget is not None and not issubclass(widget.__class__, MainWindow):
+                widget = widget.parent()
+            self._window = widget
+        return self._window
 
     """
     Drag and drop management
