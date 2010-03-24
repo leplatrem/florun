@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os, sys
+import os, sys, copy
 import cStringIO, traceback
 
 from PyQt4.QtCore import *
@@ -470,7 +470,8 @@ class DiagramScene(QGraphicsScene):
         
     def removeDiagramItem(self, item):
         for slot in item.slotitems:
-            for connector in slot.connectors:
+            toremove = copy.copy(slot.connectors)
+            for connector in toremove:
                 self.removeConnector(connector)
         self.removeItem(item)
         QObject.emit(self, SIGNAL("diagramItemRemoved"), item)
@@ -478,10 +479,10 @@ class DiagramScene(QGraphicsScene):
     def addConnector(self, startSlot, endSlot=None, emit=True):
         connector = DiagramConnector()
         self.addItem(connector)
-        startSlot.connect(connector)
+        startSlot.connect(connector, start=True)
         # If endSlot is not given, then the user is now drawing 
         if endSlot is not None:
-            endSlot.connect(connector, False)
+            endSlot.connect(connector, start=False)
             loggui.debug("%s %s" % (self.tr(u"Connector added"), connector))
             if emit:
                 QObject.emit(self, SIGNAL("connectorCreated"), connector)
@@ -489,11 +490,12 @@ class DiagramScene(QGraphicsScene):
         return connector
 
     def removeConnector(self, connector, event=False):
+        loggui.debug(self.tr(u"Disconnect %1").arg(u'%s'%connector))
         connector.disconnect()
         self.removeItem(connector)
         self.connectorLeaveEvent(connector)
         if event:
-            loggui.debug("%s %s" % (self.tr(u"Connector removed"), connector))
+            loggui.debug((self.tr(u"Connector removed : %1").arg(u'%s'%connector)))
             QObject.emit(self, SIGNAL("connectorRemoved"), connector)
 
     def findDiagramItemByNode(self, node):
@@ -541,6 +543,7 @@ class DiagramScene(QGraphicsScene):
             # Create connector
             if self.slot is not None:              
                 if self.connector.canConnect(self.slot):
+                    # Check if connector already exists
                     exists = False
                     for i in [item for item in self.items() if issubclass(item.__class__,DiagramConnector)]:
                         if i.startItem == self.connector.startItem and i.endItem == self.slot:

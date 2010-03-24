@@ -29,6 +29,8 @@ class Flow(object):
         @type end   : {Interface}
         """
         self.modified = True
+        if end in start.successors or start in end.successors:
+            raise Exception(_("Connector already exists from %s to %s") % (start, end))
         start.addSuccessor(end)
 
     def addNode(self, node):
