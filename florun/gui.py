@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# -*- coding: utf8 -*-
+
 import os, sys, copy
 import cStringIO, traceback
 
@@ -409,6 +411,7 @@ class DiagramScene(QGraphicsScene):
         self.slot = None
         self.connectorHover = None
         self.slotHover = None
+        self.itemSelected = None
 
     @property
     def window(self):
@@ -575,7 +578,13 @@ class DiagramScene(QGraphicsScene):
     
     def itemSelected(self, item):
         if issubclass(item.__class__, DiagramItem):
-            QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
+            #TODO: this is not logic
+            # Due to DiagramItem::showSlot() l.350 qui désélectionne tout seul !
+            # http://www.qtforum.org/article/32164/setvisible-on-a-qgraphicsitemgroup-child-changes-the-group-selected-state.html
+            if item != self.itemSelected:
+                self.itemSelected = item
+                QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
+            #QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
 
 
 """
@@ -691,7 +700,14 @@ class LibraryItem(QFrame):
 
 """
 class ParameterField(QWidget):
+    """
+    A form widget for the {ParameterEditor}.
+    It will reflect its associated L{flow.Interface}. 
+    """
     def __init__(self, interface, *args):
+        """
+        @type interface : L{flow.Interface}
+        """
         QWidget.__init__(self, *args)
         self.interface = interface
         
@@ -713,6 +729,9 @@ class ParameterField(QWidget):
         self.update()
 
     def update(self):
+        """
+        Reload interface information.
+        """
         self.checkbox.setCheckState(Qt.Checked if self.interface.slot else Qt.Unchecked)
         self.edit.setEnabled(not self.interface.slot)
         if self.interface.slot: self.edit.setText('')
@@ -786,10 +805,6 @@ class ParametersEditor(QWidget):
         self.btnDelete.setEnabled(state)
         self.btnCancel.setEnabled(state and self.changed)
         self.btnSave.setEnabled(state and self.changed)
-    
-    def entriesChanged(self):
-        self.changed = True
-        self.enable()
     
     def clear(self):
         # If item fields were changed ?
@@ -874,12 +889,16 @@ class ParametersEditor(QWidget):
             checked = w.checkbox.checkState() == Qt.Checked
             # State changed ?
             if w.interface.slot != checked:
+                self.changed = True
                 w.interface.slot = checked
                 w.update() # Enable/disable widget
                 # Show/Hide slot on item
                 slot = self.item.findSlot(w.interface)
                 self.item.showSlot(slot, checked)
-                
+    
+    def entriesChanged(self):
+        self.changed = True
+        self.enable()        
 
 class FlowConsole(QWidget):
     def __init__(self, *args):
@@ -1224,6 +1243,8 @@ class MainWindow(QMainWindow):
     
     def connectorRemoved(self, connector):
         loggui.debug(self.tr("Main window: diagram connector removed : %1").arg(u'%s'%connector))
+        assert self.connector.startItem is not None
+        assert self.connector.endItem is not None
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.removeConnector(start, end)
