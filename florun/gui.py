@@ -28,6 +28,11 @@ class SlotItem(QGraphicsEllipseItem):
     TEXT_LEFT, TEXT_RIGHT, TEXT_BOTTOM, TEXT_TOP = range(4)
     
     def __init__(self, parent, interface, textposition = None):
+        """
+        @type parent : L{DiagramItem}
+        @type interface : L{flow.Interface}
+        @param textpostition : L{SlotItem.TEXT_LEFT}, ... L{SlotItem.TEXT_TOP} 
+        """
         QGraphicsEllipseItem.__init__(self, parent)
         assert issubclass(parent.__class__, DiagramItem)
         self.parent = parent
@@ -42,6 +47,7 @@ class SlotItem(QGraphicsEllipseItem):
         self.textposition = textposition
 
     def buildItem(self):
+        self.setToolTip(self.interface.doc)
         color = self.COLORS.values()[0]
         for iclass, icolor in self.COLORS.items():
             if issubclass(self.interface.__class__, iclass):
@@ -1159,8 +1165,9 @@ class MainWindow(QMainWindow):
         logcore.debug(errmsg + "\n" + tbinfo)
 
         errorbox = QMessageBox()
+        errorbox.setWindowTitle(_(u"Internal Error"))
         errorbox.setIcon(QMessageBox.Critical)
-        errorbox.setText(u"An unhandled exception occurred.")
+        errorbox.setText(_(u"An unhandled exception occurred."))
         errorbox.setInformativeText(errmsg)
         errorbox.setDetailedText(tbinfo)
         errorbox.exec_()
@@ -1243,8 +1250,8 @@ class MainWindow(QMainWindow):
     
     def connectorRemoved(self, connector):
         loggui.debug(self.tr("Main window: diagram connector removed : %1").arg(u'%s'%connector))
-        assert self.connector.startItem is not None
-        assert self.connector.endItem is not None
+        assert connector.startItem is not None
+        assert connector.endItem is not None
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.removeConnector(start, end)
