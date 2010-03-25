@@ -5,7 +5,7 @@ import os, sys, copy
 import cStringIO, traceback
 
 from PyQt4.QtCore import *
-from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QIcon, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor 
+from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, QIcon, QDialog, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor 
 from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
@@ -1154,6 +1154,41 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         toolbar.addAction(self.exit)
 
+    def FlowCLIArguments(self, argsnames):
+        """
+        Build a dialog to allow entering CLI args
+        required to start flow.
+        @type argsnames : list of string 
+        """
+        dialog = QDialog()
+        dialog.setWindowTitle(self.tr("Enter command-line arguments"))
+        # Form widget
+        form = {}
+        formlayout = QFormLayout()
+        for argname in argsnames:
+            edit = QLineEdit() 
+            form[argname] = edit
+            formlayout.addRow(argname, edit)
+        formwidget = QWidget()
+        formwidget.setLayout(formlayout)
+        # Ok / Cancel
+        box = QDialogButtonBox()         
+        box.addButton(QDialogButtonBox.Ok) 
+        box.addButton(QDialogButtonBox.Cancel)
+        QObject.connect(box, SIGNAL("accepted()"), dialog.accept) 
+        QObject.connect(box, SIGNAL("rejected()"), dialog.reject)
+        vlayout = QVBoxLayout()
+        vlayout.addWidget(formwidget)
+        vlayout.addWidget(box)
+        # Show dialog
+        dialog.setLayout(vlayout)
+        answer = dialog.exec_()
+        userentries = {}
+        for name,edit in form.items():
+            userentries[name] = edit.text()    
+        return answer, userentries
+    
+        
     @classmethod
     def messageException(cls, excType, excValue, tracebackobj):
         errmsg = u"%s: %s" % (str(excType), str(excValue))
@@ -1374,7 +1409,16 @@ class MainWindow(QMainWindow):
             elif answer == QMessageBox.Cancel:
                 loggui.debug(self.tr("Flow start canceled by user."))
                 return
-            
+        
+        # Ask for args
+        cliargs = [n.name.value for n in self.flow.CLIParameterNodes() if len(n.name.predecessors) == 0]
+        loggui.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
+        
+        answer, userargs = self.FlowCLIArguments(cliargs)
+        if answer == QDialog.Rejected:
+            loggui.debug(self.tr("Flow start canceled by user."))
+            return          
+        
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
         # Disable start
@@ -1385,9 +1429,15 @@ class MainWindow(QMainWindow):
         self.console.attachProcess(self.process)
         self.connect(self.process, SIGNAL("readyReadStandardOutput()"), self.console.updateConsole)
         self.connect(self.process, SIGNAL("readyReadStandardError()"),  self.console.updateConsole)
+        
         # Run command
         florunmain = os.path.join(florun.base_dir, 'florun.py')
-        cmd = u'python %s --level %s --execute "%s"' % (florunmain, self.console.loglevel, self.flow.filename)
+        cmd = u'python %s --level %s --execute "%s" %s' % \
+                (florunmain, 
+                 self.console.loglevel, 
+                 self.flow.filename,
+                 " ".join(['--%s "%s"' % (argname, argvalue) 
+                           for argname, argvalue in userargs.items()]))
         loggui.debug(self.tr("Start command '%1'").arg(cmd))
         self.process.start(cmd)
         # Now wait...
