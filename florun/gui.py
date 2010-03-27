@@ -1410,44 +1410,36 @@ class MainWindow(QMainWindow):
                 loggui.debug(self.tr("Flow start canceled by user."))
                 return
         
-        # Ask for args
-        cliargs = [n.name.value for n in self.flow.CLIParameterNodes() if len(n.name.predecessors) == 0]
-        loggui.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
-        
-        answer, userargs = self.FlowCLIArguments(cliargs)
-        if answer == QDialog.Rejected:
-            loggui.debug(self.tr("Flow start canceled by user."))
-            return          
-        
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
+        
+        # Ask for args if any
+        userargs = {}
+        cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() if len(n.name.predecessors) == 0]
+        if len(cliargs) > 0:
+            loggui.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
+            answer, userargs = self.FlowCLIArguments(cliargs)
+            if answer == QDialog.Rejected:
+                loggui.debug(self.tr("Flow start canceled by user."))
+                return          
+        
         # Disable start
         self.start.setEnabled(False)
         self.stop.setEnabled(True)
-        # Use process
+        # Create process
         self.process = QProcess()
         self.console.attachProcess(self.process)
         self.connect(self.process, SIGNAL("readyReadStandardOutput()"), self.console.updateConsole)
         self.connect(self.process, SIGNAL("readyReadStandardError()"),  self.console.updateConsole)
+        self.connect(self.process, SIGNAL("finished(int, QProcess::ExitStatus)"),  self.onFinishedFlow)
         
         # Run command
-        florunmain = os.path.join(florun.base_dir, 'florun.py')
-        cmd = u'python %s --level %s --execute "%s" %s' % \
-                (florunmain, 
-                 self.console.loglevel, 
-                 self.flow.filename,
-                 " ".join(['--%s "%s"' % (argname, argvalue) 
-                           for argname, argvalue in userargs.items()]))
+        cmd = florun.build_exec_cmd(self.flow, self.console.loglevel, userargs)
         loggui.debug(self.tr("Start command '%1'").arg(cmd))
         self.process.start(cmd)
-        # Now wait...
+        # check if command-line error...
         if not self.process.waitForStarted():
-            self.process.kill()
-            raise Exception(self.tr("Could not execute flow : %1").arg(self.process.error())) 
-        self.process.waitForFinished()
-        self.console.detachProcess()
-        self.start.setEnabled(True)
-        self.stop.setEnabled(False)
+            raise Exception(self.tr("Could not execute flow : %1 : %2").arg(cmd).arg(self.process.error())) 
 
     def stopFlow(self):
         """
@@ -1455,10 +1447,22 @@ class MainWindow(QMainWindow):
         """
         # Interrupt running thread
         self.process.kill()
+        
+    def onFinishedFlow(self, exitCode, exitStatus):
+        """
+        @type exitCode : int
+        @type exitStatus : L{QProcess.ExitStatus}
+        """
+        if exitStatus == QProcess.NormalExit:
+            loggui.debug(self.tr("Flow execution finished (%1)").arg(exitCode))
+        else:
+            loggui.debug(self.tr("Flow execution interrupted by user."))
+        # Reinitialize GUI
         self.console.detachProcess()
         self.process = None
         self.start.setEnabled(True)
         self.stop.setEnabled(False)
+                
 
 
 def main(args, filename=None):

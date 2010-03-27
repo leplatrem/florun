@@ -20,3 +20,19 @@ _          = None
 base_dir   = None
 locale_dir = ''
 icons_dir  = ''
+
+
+def build_exec_cmd(flow, loglevel, userargs={}):
+    """
+    @type flow : L{flow.Flow}
+    @param loglevel : level from L{utils.Logger}
+    @rtype: string 
+    """
+    import os
+    florunmain = os.path.join(base_dir, 'florun.py')
+    return u'python %s --level %s --execute "%s" %s' % \
+                (florunmain, 
+                 loglevel, 
+                 flow.filename,
+                 " ".join(['--%s "%s"' % (argname, argvalue) 
+                           for argname, argvalue in userargs.items()]))

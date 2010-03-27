@@ -79,7 +79,9 @@ def main(prefix):
     if options.edit is not None:
         # Run editor on specified flow
         return florun.gui.main(args, options.edit)
-    elif options.execute is not None:       
+    elif options.execute is not None:
+        import time
+        time.sleep(5)       
         try:
             # Load flow definition
             wf = florun.flow.Flow.load(options.execute)
