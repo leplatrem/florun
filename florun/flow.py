@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
-import sys
+import os, sys, copy, codecs
 import threading
 from utils import logcore, empty, atoi
 from xml.dom.minidom import Document, parseString
@@ -12,7 +12,9 @@ from gettext import gettext as _
 
 class FlowException(Exception):
     pass
-
+class IncompatibilityException(FlowException):
+    def __init__(self, interface1, interface2):
+        FlowException.__init__(self, _("%s incompatible with %s") % (interface1.classname, interface2.classname))
 
 
 class Flow(object):
@@ -22,8 +24,29 @@ class Flow(object):
     def __init__(self, **kwargs):
         self.modified = False
         self.filename = None
-        self.nodes = []
+        self._nodes = []
 
+    @property
+    def nodes(self):
+        return self._nodes
+    
+    @nodes.setter
+    def nodes(self, nodes):
+        self._nodes = nodes
+
+    @property
+    def startNodes(self):
+        return [n for n in self.nodes if empty(n.predecessors)]
+    
+    @property
+    def inputNodes(self):
+        return [n for n in self.nodes if issubclass(n.__class__, InputNode)]
+    
+    def CLIParameterNodes(self):
+        return [n for n in self.nodes 
+                  if issubclass(n.__class__, CommandLineParameterInputNode)]
+
+        
     def addConnector(self, start, end):
         """
         @type start : {Interface}
@@ -68,22 +91,22 @@ class Flow(object):
         Generates a non-existing node id
         @rtype: string
         """
-        id = "%s" % node.label
+        nodeid = "%s" % node.label
         i = 2
-        while id in [n.id for n in self.nodes]:
-            id = "%s-%s" % (node.label, i)
+        while nodeid in [n.id for n in self.nodes]:
+            nodeid = "%s-%s" % (node.label, i)
             i = i + 1
-        return id
+        return nodeid
     
-    def findNode(self, id):
+    def findNode(self, nodeid):
         """
         Find node by its id
         @rtype: L{Node}
         """
         for n in self.nodes:
-            if n.id == id:
+            if n.id == nodeid:
                 return n
-        raise Exception(_(u"Node with id '%s' not found.") % id)
+        raise Exception(_("Node with id '%s' not found.") % nodeid)
     
     @staticmethod
     def load(filename):
@@ -98,11 +121,14 @@ class Flow(object):
         f = Flow.importXml(content)
         f.filename = filename
         f.modified = False
+        f.sortNodesByIncidence()
         return f
     
     def save(self, filename=None):
         if filename is None:
             filename = self.filename
+        # Update incidence field and sort
+        self.sortNodesByIncidence()
         xml = self.exportXml()
         logcore.info(_("Save flow to file '%s'") % filename)
         fd = open(filename, 'w')
@@ -110,13 +136,22 @@ class Flow(object):
         fd.close()
         self.modified = False
 
-    @property
-    def inputNodes(self):
-        return [n for n in self.nodes if issubclass(n.__class__, InputNode)]
-    
-    def CLIParameterNodes(self):
-        return [n for n in self.nodes 
-                  if issubclass(n.__class__, CommandLineParameterInputNode)]
+
+    def sortNodesByIncidence(self):
+        """
+        Recursively sets a incidence number for each node, 
+        depending on its position within the flow.
+        Sort nodes on this index.
+        """
+        def setincidence(nodelist, level):
+            for n in nodelist:
+                n.incidence = level
+                if len(n.successors)>0:
+                    setincidence(n.successors, level+1)
+        setincidence(self.startNodes, 1)
+        self.nodes.sort(cmp=lambda x,y: cmp(x.id, y.id))
+        self.nodes.sort(cmp=lambda x,y: x.incidence - y.incidence)
+
     
     @classmethod
     def importXml(cls, xmlcontent):
@@ -128,9 +163,9 @@ class Flow(object):
         dom = parseString(xmlcontent)
      
         for xmlnode in dom.getElementsByTagName('node'):
-            id        = xmlnode.getAttribute('id')
+            nodeid    = xmlnode.getAttribute('id')
             classname = xmlnode.getAttribute('type')
-            logcore.debug(_(u"XML node type %s with id '%s'") % (classname, id))
+            logcore.debug(_(u"XML node type %(classname)s with id '%(nodeid)s'") % locals())
 
             # Dynamic instanciation of node type
             try:
@@ -138,7 +173,7 @@ class Flow(object):
             except:
                 raise Exception(_(u"Unknown node type '%s'") % classname)
             
-            node = classobj(flow=flow, id=id)
+            node = classobj(flow=flow, id=nodeid)
             
             # Load graphical attributes
             for prop in xmlnode.getElementsByTagName('graphproperty'):
@@ -150,8 +185,8 @@ class Flow(object):
         
         # Once all nodes have been loaded, load links :
         for xmlnode in dom.getElementsByTagName('node'):
-            id = xmlnode.getAttribute('id')
-            node = flow.findNode(id)
+            nodeid = xmlnode.getAttribute('id')
+            node   = flow.findNode(nodeid)
             for xmlinterface in xmlnode.getElementsByTagName('interface'):
                 name = xmlinterface.getAttribute('name')
                 src  = node.findInterface(name)
@@ -161,8 +196,9 @@ class Flow(object):
                     if not src.slot:
                         src.value = xmlinterface.getAttribute('value')
                 for xmlsuccessor in xmlinterface.getElementsByTagName('successor'):
-                    id    = xmlsuccessor.getAttribute('node')
-                    dnode = flow.findNode(id)
+                    dnodeid = xmlsuccessor.getAttribute('node')
+                    dnode   = flow.findNode(dnodeid)
+                    # Find interface on destination node
                     dname = xmlsuccessor.getAttribute('interface')
                     dest  = dnode.findInterface(dname)
                     dest.slot = True
@@ -189,7 +225,7 @@ class Flow(object):
                 for graphprop in node.graphicalprops:
                     prop = grxml.createElement('graphproperty')
                     prop.setAttribute('name', graphprop)
-                    prop.setAttribute('value', unicode(node.graphicalprops[graphprop]))
+                    prop.setAttribute('value', "%s" % node.graphicalprops[graphprop])
                     xmlnode.appendChild(prop)
             
             # Interfaces and successors
@@ -214,39 +250,6 @@ class Flow(object):
         return grxml.toprettyxml()
 
 
-class NodeRunner(threading.Thread):
-    def __init__(self, node):
-        threading.Thread.__init__(self)
-        self.node = node
-    def run(self):
-        self.node.start()
-    def stop(self):
-        pass
-
-class Runner(object):
-    def __init__(self, flow):
-        self.flow = flow
-        self.threads = []
-        
-    def start(self):
-        logcore.info(_("Start execution of flow..."))
-        for node in self.flow.nodes:
-            th = NodeRunner(node)
-            self.threads.append(th)
-            th.start()
-        logcore.debug(_("All node instantiated, waiting for their input interfaces to be ready."))
-        for node in self.flow.inputNodes:
-            # Start nodes without predecessors
-            if empty(node.predecessors):
-                node.canRun.set()
-        logcore.debug(_("All input node started. Wait for each node to finish."))
-        for th in self.threads:
-            th.join()
-        logcore.info(_("Done."))
-        
-    def stop(self):
-        for th in self.threads:
-            th.stop()
 
 class Interface(object):
     PARAMETER, INPUT, RESULT, OUTPUT = range(4)
@@ -254,10 +257,12 @@ class Interface(object):
     def __init__(self, node, name, **kwargs):
         self.node = node
         self.name = name
-        """@type successors: list of {Interface}""" 
+        
+        #: list of {Interface}
         self.successors = []
-        """@type predecessors: list of {Interface}"""
+        #: list of {Interface}
         self.predecessors = []
+        
         self.type    = kwargs.get('type', self.PARAMETER)
         self.slot    = kwargs.get('slot', True)
         self.default = kwargs.get('default', None)
@@ -271,24 +276,27 @@ class Interface(object):
     
     def isInput(self):
         return self.type == self.INPUT or self.type == self.PARAMETER
-    
-    def canConnectTo(self, other):
-        """if (self.type == self.OUTPUT and other.type = self.INPUT) or
-        check here output --> input, parameter -- result ???
-        # He can check mimetype etc.
+
+    def isCompatible(self, other):
         """
-        if self == other or self.node == other.node:
-            return False
+        Check whether {self} can be connected to {other}.
+        It is necessary in order to check that {self} can load {other}.
         
-        for iclass in [InterfaceStream, InterfaceValue, InterfaceList]:
-            # Same ancestor
-            if issubclass(self.__class__, iclass) and issubclass(other.__class__, iclass):
-                return True
+        @type other : L{Interface}
+        
+        @rtype : boolean
+        """
+        if self != other and self.node != other.node:
+            if self.type != Interface.OUTPUT and other.type != Interface.INPUT:
+            # self must be Output, other must be Input
+                if self.type != Interface.RESULT and other.type != Interface.PARAMETER:
+                # self must be Result, other must be Parameter
+                    return True
         return False
 
     def addSuccessor(self, interface):
-        if not self.canConnectTo(interface):
-            raise Exception(_("Cannot connect slots"))
+        if not interface.isCompatible(self):
+            raise IncompatibilityException(interface, self)
         self.successors.append(interface)
         interface.predecessors.append(self)
         logcore.debug(_("%s has following successors : %s") % (self, self.successors))
@@ -345,6 +353,7 @@ class Node (object):
         if self.id == '' and self.flow is not None:
             self.id = self.flow.randomId(self)
         self._interfaces = []
+        self.incidence   = 0
         self.graphicalprops = {}
         
         self.__readyinterfaces = {}
@@ -498,9 +507,16 @@ class InterfaceValue(Interface):
         self._value = val
     def isValue(self):
         return True
+    
+    def isCompatible(self, other):
+        if issubclass(other.__class__, InterfaceValue):
+            return super(InterfaceValue, self).isCompatible(other)
+        return False
+            
     def load(self, other):
         Interface.load(self, other)
         self.value = other.value
+        
 
 class InterfaceStream(Interface):
     def __init__(self, node, name, **kwargs):
@@ -515,16 +531,49 @@ class InterfaceStream(Interface):
 
     def flush(self):
         self.stream.flush()
+
+    def isCompatible(self, other):
+        if issubclass(other.__class__, InterfaceStream) or \
+           issubclass(other.__class__, InterfaceValue)  or \
+           issubclass(other.__class__, InterfaceList):
+            return super(InterfaceStream, self).isCompatible(other)
+        return False
     
     def load(self, other):
         Interface.load(self, other)
-        #self.stream = copy.copy(other.stream)
-        self.stream = open(other.stream.name, 'rb')
-        #self.stream.seek(0)
+        if issubclass(other.__class__, InterfaceStream):
+            #self.stream = copy.copy(other.stream)
+            self.stream = codecs.open(other.stream.name, 'rb', 'utf-8')
+            #self.stream.seek(0)
+        elif issubclass(other.__class__, InterfaceValue):
+            self.node.debug(_("Write InterfaceValue to InterfaceStream"))
+            self.stream.write(u"%s\n" % other.value)
+        elif issubclass(other.__class__, InterfaceList):
+            self.node.debug(_("Write InterfaceList to InterfaceStream"))
+            self.stream.write(u"\n".join(other.items))
+            self.stream.seek(0)
+                
+        else:
+            raise IncompatibilityException(self, other)
+        
 
 
 class InterfaceList(Interface):
-    pass
+    def __init__(self, node, name, **kwargs):
+        Interface.__init__(self, node, name, **kwargs)
+        self.items = []
+        
+    def __iter__(self):
+        return iter(self.items)
+
+    def isCompatible(self, other):
+        if issubclass(other.__class__, InterfaceList):
+            return super(InterfaceList, self).isCompatible(other)
+        return False
+
+    def load(self, other):
+        Interface.load(self, other)
+        self.items = copy.copy(other.items)
 
 
 
@@ -580,7 +629,7 @@ class FileInputNode (InputNode):
 
 
 class ValueInputNode (InputNode):
-    label    = _(u"Value")
+    label       = _(u"Value")
     description = _(u"A string or number")
 
     def __init__(self, **kwargs):
@@ -601,14 +650,15 @@ class CommandLineParameterInputNode (InputNode):
         self.name    = InterfaceValue(self, 'name',    default='', type=Interface.PARAMETER, slot=False, doc=_("Command line interface parameter name"))
         self.value   = InterfaceValue(self, 'value',   default='', type=Interface.OUTPUT,    doc=_("value retrieved"))
         self.default = InterfaceValue(self, 'default', default='', type=Interface.PARAMETER, slot=False, doc=_("default value if not specified at runtime"))
-        """@type options: L{optparse.Values}"""
+        
+        #: L{optparse.Values}
         self.options = None
 
     def run(self):
         # Options were parsed in main
         value = getattr(self.options, self.paramname)
         if empty(value):
-            logcore.debug("Expected parameter '%s' is missing from command-line, use default." % self.paramname)
+            self.debug("Expected parameter '%s' is missing from command-line, use default." % self.paramname)
             value = self.default.value
         self.info(_("CLI Parameter '%s'='%s'") % (self.paramname, value))
         self.value.value = value
@@ -637,6 +687,29 @@ class CommandLineStdinInputNode (InputNode):
 class FileListInputNode (InputNode):
     label    = _(u"File list")
     description = _(u"List files of a folder")
+    
+    def __init__(self, **kwargs):
+        InputNode.__init__(self, **kwargs)
+        self.folder   = InterfaceValue(self,'folder',   default='', type=Interface.PARAMETER, slot=False, doc="folder to scan")
+        self.filelist = InterfaceList(self, 'filelist', default='', type=Interface.OUTPUT,    doc="list of file paths")    
+    
+    def run(self):
+        path = self.folder.value
+        self.info(_("Recursive file list of folder '%s'") % path)
+        self.filelist.items = self.walk(path) 
+    
+    def walk(self, dirpath):
+        filelist = []
+        dirpath = os.path.abspath(dirpath)
+        if not os.path.exists(dirpath):
+            raise FlowException(_("Folder not found '%s'") % dirpath)
+        for f in [ff for ff in os.listdir(dirpath) if ff not in [".",".."]]:
+            nfile = os.path.join(dirpath, f)
+            filelist.append(nfile)
+            if os.path.isdir(nfile):
+                filelist.extend(self.walk(nfile))
+        return filelist
+    
 
 #
 # Output nodes
@@ -677,3 +750,41 @@ class CommandLineStdoutOutputNode (OutputNode):
             self.outstream.write(line)
         self.outstream.flush()
 
+
+
+
+#
+#    Execution classes
+#
+    
+class NodeRunner(threading.Thread):
+    def __init__(self, node):
+        threading.Thread.__init__(self)
+        self.node = node
+    def run(self):
+        self.node.start()
+    def stop(self):
+        pass
+
+class Runner(object):
+    def __init__(self, flow):
+        self.flow = flow
+        self.threads = []
+        
+    def start(self):
+        logcore.info(_("Start execution of flow..."))
+        for node in self.flow.nodes:
+            th = NodeRunner(node)
+            self.threads.append(th)
+            th.start()
+        logcore.debug(_("All node instantiated, waiting for their input interfaces to be ready."))
+        for node in self.flow.startNodes:
+            node.canRun.set()
+        logcore.debug(_("All input node started. Wait for each node to finish."))
+        for th in self.threads:
+            th.join()
+        logcore.info(_("Done."))
+        
+    def stop(self):
+        for th in self.threads:
+            th.stop()

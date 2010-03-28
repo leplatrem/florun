@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<flow>
+	<node id="Action icons" type="FileListInputNode">
+		<graphproperty name="y" value="-468.0"/>
+		<graphproperty name="x" value="-324.0"/>
+		<interface name="filelist">
+			<successor interface="input" node="CLI Stdout"/>
+		</interface>
+		<interface name="folder" slot="False" value="/usr/share/icons/hicolor/scalable/actions"/>
+	</node>
+	<node id="CLI Stdout" type="CommandLineStdoutOutputNode">
+		<graphproperty name="y" value="-365.0"/>
+		<graphproperty name="x" value="-325.0"/>
+		<interface name="input"/>
+	</node>
+</flow>

@@ -24,8 +24,8 @@
 		<graphproperty name="x" value="-241.0"/>
 		<interface name="stdin"/>
 		<interface name="stdout">
-			<successor interface="input" node="Write"/>
 			<successor interface="input" node="Print"/>
+			<successor interface="input" node="Write"/>
 		</interface>
 		<interface name="cmd" slot="False" value="head"/>
 		<interface name="result"/>

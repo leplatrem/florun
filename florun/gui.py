@@ -139,7 +139,7 @@ class DiagramConnector(QGraphicsLineItem):
         Test if startitem and specified endslot are compatible
         @rtype boolean
         """
-        return self.startItem.interface.canConnectTo(endItem.interface)
+        return endItem.interface.isCompatible(self.startItem.interface)
 
     def disconnect(self):
         self.startItem.disconnect(self)
@@ -525,7 +525,7 @@ class DiagramScene(QGraphicsScene):
         if self.connector is not None:
             self.connector.moveEnd(pos)
 
-        #TODO: fix this nicely !
+        #TODO: refactor this nicely !
         # This is due to this problem : http://ubuntuforums.org/showthread.php?p=9013506
         # Check if mouse left or entered a slot
         hoverslot = None
@@ -584,7 +584,7 @@ class DiagramScene(QGraphicsScene):
     
     def itemSelected(self, item):
         if issubclass(item.__class__, DiagramItem):
-            #TODO: this is not logic
+            #TODO: Refactor this nicely
             # Due to DiagramItem::showSlot() l.350 qui désélectionne tout seul !
             # http://www.qtforum.org/article/32164/setvisible-on-a-qgraphicsitemgroup-child-changes-the-group-selected-state.html
             if item != self.itemSelected:
@@ -807,7 +807,8 @@ class ParametersEditor(QWidget):
     def enable(self):
         state = self.item is not None
         self.nodeId.setEnabled(state)
-        #TODO: enable extra widgets
+        for w in self.extrafields.values():
+            w.setEnabled(state)
         self.btnDelete.setEnabled(state)
         self.btnCancel.setEnabled(state and self.changed)
         self.btnSave.setEnabled(state and self.changed)
@@ -822,7 +823,7 @@ class ParametersEditor(QWidget):
                 self.save()
         
         # Now clear the panel, and reinitialize widgets
-        if self.formwidget is not None:
+        if self.formwidget is not None: 
             self.paramlayout.removeWidget(self.formwidget)
             self.formwidget.setParent(None)
         
@@ -980,6 +981,7 @@ class MainWindow(QMainWindow):
         self.apptitle = florun.__title__
         # Main attributes 
         self.basedir = florun.base_dir
+        self.asked = False
         self.flow = None
         self.buildActions()
         self.buildWidgets()
@@ -991,6 +993,7 @@ class MainWindow(QMainWindow):
         else:
             self.newFlow()
         self.updateTitle()
+        
 
     def buildWidgets(self):
         # Main widgets
@@ -1125,6 +1128,7 @@ class MainWindow(QMainWindow):
     def updateSavedState(self):
         self.updateTitle()
         self.save.setEnabled(self.flow.modified)
+        self.asked = False
         #self.start.setEnabled(not self.flow.modified)
     
     def center(self):
@@ -1185,7 +1189,9 @@ class MainWindow(QMainWindow):
         answer = dialog.exec_()
         userentries = {}
         for name,edit in form.items():
-            userentries[name] = edit.text()    
+            txt = edit.text()
+            if not empty(txt):
+                userentries[name] = txt    
         return answer, userentries
     
         
@@ -1400,7 +1406,7 @@ class MainWindow(QMainWindow):
         """
         Run current flow
         """
-        if self.flow.modified:
+        if self.flow.modified and not self.asked:
             answer = MainWindow.messageCancelYesNo(self.tr(u"Save flow ?"),
                                                    self.tr(u"The flow has been modified."),
                                                    self.tr("Do you want to save your changes?"))
@@ -1409,6 +1415,8 @@ class MainWindow(QMainWindow):
             elif answer == QMessageBox.Cancel:
                 loggui.debug(self.tr("Flow start canceled by user."))
                 return
+            else:
+                self.asked = True
         
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
