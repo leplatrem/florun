@@ -12,6 +12,7 @@ from gettext import gettext as _
 
 class FlowException(Exception):
     pass
+
 class IncompatibilityException(FlowException):
     def __init__(self, interface1, interface2):
         FlowException.__init__(self, _("%s incompatible with %s") % (interface1.classname, interface2.classname))
@@ -253,9 +254,16 @@ class Flow(object):
 
 
 class Interface(object):
+    """
+    Interfaces allow two L{Node}s to be connected.  
+    """
     PARAMETER, INPUT, RESULT, OUTPUT = range(4)
 
     def __init__(self, node, name, **kwargs):
+        """
+        @type node : L{Node}
+        @type name : string
+        """
         self.node = node
         self.name = name
         
@@ -296,6 +304,9 @@ class Interface(object):
         return False
 
     def addSuccessor(self, interface):
+        """
+        @type interface : L{Interface}
+        """
         if not interface.isCompatible(self):
             raise IncompatibilityException(interface, self)
         self.successors.append(interface)
@@ -303,6 +314,9 @@ class Interface(object):
         logcore.debug(_("%s has following successors : %s") % (self, self.successors))
         
     def removeSuccessor(self, interface):
+        """
+        @type interface : L{Interface}
+        """
         self.successors.remove(interface)
         interface.predecessors.remove(self)
 
@@ -328,10 +342,16 @@ class Interface(object):
     
     @property
     def fullname(self):
+        """
+        @rtype : string
+        """
         return u"%s(%s)" % (self.classname, self.name)
         
     @property
     def classname(self):
+        """
+        @rtype : string
+        """
         return self.__class__.__name__
     
     def __str__(self):
@@ -344,6 +364,11 @@ class Interface(object):
 
 
 class Node (object):
+    """
+    A {Node} is a step in the flow.
+    It runs operations, using Parameter {Interface}s, giving Result, reading 
+    from Input, writing to Output.
+    """
     category    = _(u"")
     label       = _(u"")
     description = _(u"")
@@ -377,6 +402,8 @@ class Node (object):
         
     def applyPosition(self, x, y):
         """
+        @type x : integer
+        @type y : integer 
         @return: True if modified.
         """
         # Use other bool, to not interfere with self.flow.modified
@@ -390,6 +417,9 @@ class Node (object):
     
     @property
     def classname(self):
+        """
+        @rtype : string
+        """
         return self.__class__.__name__
 
     @property
@@ -441,12 +471,22 @@ class Node (object):
         return predecessors
     
     def findInterface(self, name):
+        """
+        @type name : string
+        @rtype : L{Interface}
+        """
         for i in self.interfaces:
             if i.name == name:
                 return i
         raise Exception(_("Interface with name '%s' not found on node %s.") % (name, self))         
 
     def onInterfaceReady(self, interface):
+        """
+        This method keeps track of nodes interfaces that are ready to be loaded.
+        When all are ready, execution starts.
+         
+        @type interface : L{Interface}
+        """
         self.__readyinterfaces[interface] = True
         if len(self.__readyinterfaces.keys()) >= len(self.inputSlotInterfaces):
             # Node has all its input interfaces ready
@@ -454,9 +494,16 @@ class Node (object):
             self.canRun.set()
 
     def run(self):
+        """
+        This method is overriden by {Node} subclasses.
+        """
         pass
 
     def start(self):
+        """
+        Start execution of node.
+        When done, notify successors of this node.
+        """
         self.debug(_("Waiting..."))
         self.canRun.wait()
         self.debug(_("Start !"))

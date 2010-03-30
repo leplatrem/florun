@@ -4,13 +4,13 @@
 import os, sys
 from optparse import OptionParser
 import gettext
-import locale
 
 import florun
 import florun.gui
 import florun.flow
 from florun.flow import FlowException
 from florun.utils  import logcore, loggui
+
 
 
 def showversion():
@@ -64,7 +64,7 @@ def main(prefix):
             last = i
             break
     # Parse only first part of args
-    (options,useless) = parser.parse_args(args[:last])
+    (options, useless) = parser.parse_args(args[:last])
     
     loggui.setLevel(options.level)
     logcore.setLevel(options.level)
