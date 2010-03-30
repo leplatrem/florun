@@ -328,6 +328,12 @@ class Interface(object):
         if other not in self.successors and other not in self.predecessors:
             raise Exception(_("Should not load interface that is not connected."))
     
+    def clean(self):
+        """
+        Method to clean and free this interface.
+        """
+        pass
+    
     def onContentReady(self, interface):
         """
         Receives notifications of predecessors readiness, if all were received, this 
@@ -523,7 +529,12 @@ class Node (object):
             for interface in i.successors:
                 self.debug(_("Notify %s") % interface)
                 interface.onContentReady(i)
-        
+    
+    def clean(self):
+        for i in self.interfaces:
+            i.clean()
+
+    
     def __str__(self):
         return repr(self)
 
@@ -581,6 +592,10 @@ class InterfaceStream(Interface):
     
     def __iter__(self):
         return iter(self.stream)
+    
+    def clean(self):
+        Interface.clean(self)
+        self.stream.close()
     
     def write(self, data):
         self.stream.write(data)
@@ -836,12 +851,18 @@ class Runner(object):
             th = NodeRunner(node)
             self.threads.append(th)
             th.start()
+        # Release semaphores
         logcore.debug(_("All node instantiated, waiting for their input interfaces to be ready."))
         for node in self.flow.startNodes:
             node.canRun.set()
+        # Wait the end
         logcore.debug(_("All input node started. Wait for each node to finish."))
         for th in self.threads:
             th.join()
+        # Clean-up
+        for n in self.flow.nodes:
+            n.clean()
+        # Done.
         logcore.info(_("Done."))
         
     def stop(self):
