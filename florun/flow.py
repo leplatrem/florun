@@ -203,6 +203,7 @@ class Flow(object):
                     dest  = dnode.findInterface(dname)
                     dest.slot = True
                     src.addSuccessor(dest)
+        flow.sortNodesByIncidence()
         return flow
     
     def exportXml(self):
