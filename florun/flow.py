@@ -365,7 +365,6 @@ class Node (object):
         @type entries : dict
         """
         for name, tuple in entries.items():
-            print entries
             value, slot = tuple
             if name == 'id':
                 self.id = value
