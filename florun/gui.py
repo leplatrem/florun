@@ -1384,6 +1384,9 @@ class MainWindow(QMainWindow):
                     enditem = self.scene.findDiagramItemByNode(successor.node)
                     endslot = enditem.findSlot(successor)
                     self.scene.addConnector(startslot, endslot, emit=False)
+        # Adjust view
+        self.view.setSceneRect(self.scene.itemsBoundingRect())
+        # Update save buttons
         self.updateSavedState()
     
     def saveFlow(self):
