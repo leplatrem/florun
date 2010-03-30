@@ -902,6 +902,7 @@ class ParametersEditor(QWidget):
                 # Show/Hide slot on item
                 slot = self.item.findSlot(w.interface)
                 self.item.showSlot(slot, checked)
+                self.enable()
     
     def entriesChanged(self):
         self.changed = True
