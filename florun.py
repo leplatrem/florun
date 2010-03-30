@@ -101,6 +101,9 @@ def main(prefix):
         except FlowException, e:
             logcore.error(e)
             return 1
+        except KeyboardInterrupt, e:
+            logcore.error(_("Interrupted by user"))
+            return 2
     else:
         return florun.gui.main(args)
     return 0
