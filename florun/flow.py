@@ -3,7 +3,7 @@
 
 import os, sys, copy, codecs
 import threading
-from utils import logcore, empty, atoi
+from utils import logcore, empty, atoi, traceback2str
 from xml.dom.minidom import Document, parseString
 import tempfile
 from gettext import gettext as _
@@ -461,11 +461,17 @@ class Node (object):
         self.canRun.wait()
         self.debug(_("Start !"))
         self.running = True
-        self.run()
+        
+        try:
+            self.run()
+            self.debug(_("Done."))
+        except Exception, e:
+            errtype, message, tb = sys.exc_info() 
+            self.error('%s' % e)
+            self.debug(traceback2str(tb))
+            
         self.running = False
-        self.debug(_("Done."))
         self.canRun.clear()
-        self.debug(_("Consider all output interfaces ready."))
         for i in self.outputInterfaces:
             for interface in i.successors:
                 self.debug(_("Notify %s") % interface)
@@ -598,11 +604,12 @@ class ProcessNode (Node):
         self.result  = InterfaceValue(self,  'result', default=0,     type=Interface.RESULT, doc="execution code return")
 
     def run(self):
+        import subprocess, shlex
         # Run cmd with input from stdin, and send output to stdout/stderr, result code
-        cmd = self.command.value
-        import subprocess
-        self.info("Run command '%s'" % cmd)
-        proc = subprocess.Popen(cmd, stdin=self.stdin.stream, stdout=self.stdout.stream, stderr=self.stderr.stream)
+        cmd = str(self.command.value)
+        args = shlex.split(cmd)
+        self.info("Run command '%s'" % args)
+        proc = subprocess.Popen(args, stdin=self.stdin.stream, stdout=self.stdout.stream, stderr=self.stderr.stream)
         proc.wait()
         self.result.value = proc.returncode
 

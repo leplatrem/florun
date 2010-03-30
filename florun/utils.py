@@ -91,6 +91,16 @@ def groupby(list, attribute):
         group.append(item)
     return groups.values()
 
+
+def traceback2str(tracebackobj):
+    import cStringIO, traceback
+    tbinfofile = cStringIO.StringIO()
+    traceback.print_tb(tracebackobj, None, tbinfofile)
+    tbinfofile.seek(0)
+    tbinfo = tbinfofile.read()
+    return tbinfo
+
+
 #.......................................................................
 
 

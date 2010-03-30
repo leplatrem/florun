@@ -2,7 +2,6 @@
 # -*- coding: utf8 -*-
 
 import os, sys, copy
-import cStringIO, traceback
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, QIcon, QDialog, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor 
@@ -244,8 +243,6 @@ class DiagramItem(QGraphicsItemGroup):
         return path
 
     def update(self):
-        QGraphicsItemGroup.update(self)
-        
         # Update id
         if self.node is not None:
             self.text.setPlainText(self.node.id)
@@ -938,6 +935,7 @@ class FlowConsole(QWidget):
         hbox.setLayout(hlbox)
         
         self.console = QTextEdit()
+        self.console.setAcceptRichText(False)
         
         self.mainlayout = QVBoxLayout()
         self.mainlayout.addWidget(hbox)
@@ -966,10 +964,16 @@ class FlowConsole(QWidget):
         if self.process is not None:
             stdout = QString(self.process.readAllStandardOutput()).trimmed()
             if stdout != "":
-                self.console.append("<span style=\"color: black\">" + stdout.replace("\n", "<br/>") + "</span>")
+                stdout = stdout.replace("<", "&lt;")
+                stdout = stdout.replace(">", "&gt;")
+                stdout = stdout.replace("\n", "<br/>")
+                self.console.append("<span style=\"color: black\">" + stdout + "</span>")
             stderr = QString(self.process.readAllStandardError()).trimmed()
             if stderr != "":
-                self.console.append("<span style=\"color: red\">" + stderr.replace("\n", "<br/>") + "</span>")
+                stderr = stderr.replace("<", "&lt;")
+                stderr = stderr.replace(">", "&gt;")
+                stderr = stderr.replace("\n", "<br/>")
+                self.console.append("<span style=\"color: red\">" + stderr + "</span>")
             
 
 """
@@ -1208,10 +1212,7 @@ class MainWindow(QMainWindow):
     @classmethod
     def messageException(cls, excType, excValue, tracebackobj):
         errmsg = u"%s: %s" % (str(excType), str(excValue))
-        tbinfofile = cStringIO.StringIO()
-        traceback.print_tb(tracebackobj, None, tbinfofile)
-        tbinfofile.seek(0)
-        tbinfo = tbinfofile.read()
+        tbinfo = traceback2str(tracebackobj)
         
         logcore.debug(errmsg + "\n" + tbinfo)
 
@@ -1446,7 +1447,7 @@ class MainWindow(QMainWindow):
                 loggui.debug(self.tr("Flow start canceled by user."))
                 return          
         
-        # Disable start
+        # Disable widgets
         self.start.setEnabled(False)
         self.stop.setEnabled(True)
         # Create process
