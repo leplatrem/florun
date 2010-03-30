@@ -364,12 +364,15 @@ class Node (object):
         """
         @type entries : dict
         """
-        for name, value in entries.items():
+        for name, tuple in entries.items():
+            print entries
+            value, slot = tuple
             if name == 'id':
                 self.id = value
             else:
                 i = self.findInterface(name)
                 i.value = value
+                i.slot  = slot
         self.flow.modified = True
         
     def applyPosition(self, x, y):

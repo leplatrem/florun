@@ -202,10 +202,10 @@ class DiagramItem(QGraphicsItemGroup):
         self.text = None
         # Underlying object
         self._node = None
-        self.buildItem()
         self.slotitems = []
         #: cf DiagramItem::showSlot() and DiagramScene::itemSelected()
         self.hackselected = False
+        self.buildItem()
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -244,6 +244,8 @@ class DiagramItem(QGraphicsItemGroup):
         return path
 
     def update(self):
+        QGraphicsItemGroup.update(self)
+        
         # Update id
         if self.node is not None:
             self.text.setPlainText(self.node.id)
@@ -254,6 +256,8 @@ class DiagramItem(QGraphicsItemGroup):
                                 -textrect.height() + itemrect.y() + itemrect.height() / 2))
         if textrect.width() > itemrect.width():
             self.text.setTextWidth(itemrect.width())
+        # Show slots
+        self.showSlots()
 
     def itemChange(self, change, value):
         # Selection state
@@ -290,11 +294,9 @@ class DiagramItem(QGraphicsItemGroup):
             self.slotitems.append(slot)
             self.addToGroup(slot)
 
-    def showSlots(self, state = True):
-        # Show/Hide them all
+    def showSlots(self):
         for slot in self.slotitems:
-            if slot.interface.slot and (state or len(slot.connectors) == 0):
-                self.showSlot(slot, state)
+            self.showSlot(slot, slot.interface.slot)
 
     def boundingOffsets(self):
         """
@@ -718,29 +720,33 @@ class ParameterField(QWidget):
         self.interface = interface
         
         self.label = self.tr(interface.name)
-        value = ''
-        if interface.value is not None:
-            value = interface.value
-        
-        self.edit     = QLineEdit(value, self)
+       
+        self.edit     = QLineEdit(self)
         self.checkbox = QCheckBox(self.tr(u'slot'), self)
         self.checkbox.setToolTip(self.tr(u'Use slot input'))
         
         layout = QHBoxLayout()
-        #layout.addWidget(QLabel(self.label))
         layout.addWidget(self.edit)
         layout.addWidget(self.checkbox)
         self.setLayout(layout)
         self.setToolTip(interface.doc)
-        self.update()
+        # Show slot as it should be
+        self.setSlot(self.interface.slot)
 
-    def update(self):
+    def setSlot(self, slotstate):
         """
-        Reload interface information.
+        Show slot checkbox as specified by slotstate
         """
-        self.checkbox.setCheckState(Qt.Checked if self.interface.slot else Qt.Unchecked)
-        self.edit.setEnabled(not self.interface.slot)
-        if self.interface.slot: self.edit.setText('')
+        self.checkbox.setCheckState(Qt.Checked if slotstate else Qt.Unchecked)
+        self.edit.setEnabled(not slotstate)
+        value = ''
+        if self.interface.value is not None and not slotstate:
+            value = self.interface.value
+        self.edit.setText(value)
+    
+    @property
+    def checked(self):
+        return self.checkbox.checkState() == Qt.Checked
 
 
 class ParametersEditor(QWidget):
@@ -815,12 +821,15 @@ class ParametersEditor(QWidget):
     
     def clear(self):
         # If item fields were changed ?
-        if self.item is not None and self.changed:
-            answer = MainWindow.messageYesNo(self.tr(u"Apply fields ?"),
-                                             self.tr(u"Some node properties have been modified."),
-                                             self.tr(u"Do you want to apply changes?"))
-            if answer == QMessageBox.Yes:
-                self.save()
+        if self.item is not None:
+            if self.changed:
+                answer = MainWindow.messageYesNo(self.tr(u"Apply fields ?"),
+                                                 self.tr(u"Some node properties have been modified."),
+                                                 self.tr(u"Do you want to apply changes?"))
+                if answer == QMessageBox.Yes:
+                    self.save()
+            # Clear loaded item, Update it on scene
+            self.item.update()
         
         # Now clear the panel, and reinitialize widgets
         if self.formwidget is not None: 
@@ -880,9 +889,9 @@ class ParametersEditor(QWidget):
     
     def save(self):
         userentries = {}
-        userentries['id'] = self.nodeId.text()
+        userentries['id'] = (self.nodeId.text(), None)
         for name, w in self.extrafields.items():
-            userentries[name] = w.edit.text()
+            userentries[name] = (unicode(w.edit.text()), w.checked)
         # Save Interface values (from GUI to flow)
         self.item.node.applyAttributes(userentries)
         self.changed = False
@@ -893,15 +902,13 @@ class ParametersEditor(QWidget):
     
     def showSlot(self, state):
         for w in self.extrafields.values():
-            checked = w.checkbox.checkState() == Qt.Checked
+            w.setSlot(w.checked)
+            # Show/Hide slot on item
+            slot = self.item.findSlot(w.interface)
+            self.item.showSlot(slot, w.checked)
             # State changed ?
-            if w.interface.slot != checked:
+            if w.interface.slot != w.checked:
                 self.changed = True
-                w.interface.slot = checked
-                w.update() # Enable/disable widget
-                # Show/Hide slot on item
-                slot = self.item.findSlot(w.interface)
-                self.item.showSlot(slot, checked)
                 self.enable()
     
     def entriesChanged(self):
