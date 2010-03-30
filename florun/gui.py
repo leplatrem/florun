@@ -1443,6 +1443,9 @@ class MainWindow(QMainWindow):
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
         
+        if len(self.flow.nodes) == 0:
+            return
+        
         # Ask for args if any
         userargs = {}
         cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() \
