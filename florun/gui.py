@@ -959,7 +959,10 @@ class FlowConsole(QWidget):
     def detachProcess(self):
         self.process = None
         self.enable()
-        
+    
+    def clear(self):
+        self.console.setText('')
+
     def updateConsole(self):
         if self.process is not None:
             stdout = QString(self.process.readAllStandardOutput()).trimmed()
@@ -1352,6 +1355,7 @@ class MainWindow(QMainWindow):
         self.flow = Flow()
         self.scene.clear()
         self.parameters.clear()
+        self.console.clear()
         self.updateSavedState()
 
     def loadFlow(self, filename=None):
@@ -1380,6 +1384,10 @@ class MainWindow(QMainWindow):
         self.flow = Flow.load(filename)
         self.scene.clear()
         self.parameters.clear()
+        self.console.clear()
+        # Switch to console tab
+        self.maintabs.setCurrentIndex(0)
+        
         # Add graphical items
         for i, n in enumerate(self.flow.nodes):
             posx = n.graphicalprops.get('x', 50 * i)
