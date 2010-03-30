@@ -204,6 +204,8 @@ class DiagramItem(QGraphicsItemGroup):
         self._node = None
         self.buildItem()
         self.slotitems = []
+        #: cf DiagramItem::showSlot() and DiagramScene::itemSelected()
+        self.hackselected = False
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -306,6 +308,7 @@ class DiagramItem(QGraphicsItemGroup):
         @type state : bool
         """
         # Save selected state, restore after
+        self.hackselected = True
         selected = self.isSelected()
         # Show/Hide slot
         slot.setVisible(state)
@@ -356,6 +359,7 @@ class DiagramItem(QGraphicsItemGroup):
             s.setPos(position)
         # Reset selected state that was lost
         self.setSelected(selected)
+        self.hackselected = False
 
 
 
@@ -583,14 +587,10 @@ class DiagramScene(QGraphicsScene):
         QGraphicsScene.mouseReleaseEvent(self, mouseEvent)
     
     def itemSelected(self, item):
-        if issubclass(item.__class__, DiagramItem):
-            #TODO: Refactor this nicely
-            # Due to DiagramItem::showSlot() l.350 qui désélectionne tout seul !
-            # http://www.qtforum.org/article/32164/setvisible-on-a-qgraphicsitemgroup-child-changes-the-group-selected-state.html
-            if item != self.itemSelected:
-                self.itemSelected = item
-                QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
-            #QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
+        # Due to DiagramItem::showSlot() l.350 auto deselect  !
+        # http://www.qtforum.org/article/32164/setvisible-on-a-qgraphicsitemgroup-child-changes-the-group-selected-state.html
+        if item.hackselected is False:
+            QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
 
 
 """
