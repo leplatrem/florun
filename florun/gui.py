@@ -851,8 +851,8 @@ class ParametersEditor(QWidget):
         self.clear()
         
     def cancel(self):
-        self.changed = False
         self.load(self.item)
+        self.changed = False
 
     def load(self, item):
         self.clear()
