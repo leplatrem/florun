@@ -549,12 +549,14 @@ class InterfaceStream(Interface):
             #self.stream.seek(0)
         elif issubclass(other.__class__, InterfaceValue):
             self.node.debug(_("Write InterfaceValue to InterfaceStream"))
+            ftell = self.stream.tell()
             self.stream.write(u"%s\n" % other.value)
+            self.stream.seek(ftell)
         elif issubclass(other.__class__, InterfaceList):
+            ftell = self.stream.tell()
             self.node.debug(_("Write InterfaceList to InterfaceStream"))
             self.stream.write(u"\n".join(other.items))
-            self.stream.seek(0)
-                
+            self.stream.seek(ftell)
         else:
             raise IncompatibilityException(self, other)
         

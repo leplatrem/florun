@@ -1137,7 +1137,9 @@ class MainWindow(QMainWindow):
         self.updateTitle()
         self.save.setEnabled(self.flow.modified)
         self.asked = False
-        #self.start.setEnabled(not self.flow.modified)
+    
+    def adjustView(self):
+        self.view.setSceneRect(self.scene.itemsBoundingRect())
     
     def center(self):
         screen = QDesktopWidget().screenGeometry()
@@ -1393,7 +1395,7 @@ class MainWindow(QMainWindow):
                     endslot = enditem.findSlot(successor)
                     self.scene.addConnector(startslot, endslot, emit=False)
         # Adjust view
-        self.view.setSceneRect(self.scene.itemsBoundingRect())
+        self.adjustView()
         # Update save buttons
         self.updateSavedState()
     
@@ -1434,7 +1436,9 @@ class MainWindow(QMainWindow):
         
         # Ask for args if any
         userargs = {}
-        cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() if len(n.name.predecessors) == 0]
+        cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() \
+                                    if  len(n.name.predecessors) == 0 \
+                                    and n.name.value is not None]
         if len(cliargs) > 0:
             loggui.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
             answer, userargs = self.FlowCLIArguments(cliargs)
