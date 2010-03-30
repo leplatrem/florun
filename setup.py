@@ -18,7 +18,7 @@ setup( name         = florun.__title__,
        
     packages     = ['florun'],
     package_data = {'florun' : files },
-    scripts      = ["runner"],
+    scripts      = ["florun.py"],
     #requires     = ['PyQt4>4'],
     #provides     = ['florun'],
     #classifiers  = ['Programming Language :: Python'],
