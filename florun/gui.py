@@ -1,10 +1,18 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
-import os, sys, copy
+import os, sys, copy, math
 
 from PyQt4.QtCore import *
-from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, QIcon, QDialog, QFileDialog, QAction, QStyle, QWidget, QFrame, QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, QGroupBox, QCheckBox, QComboBox, QSplitter, QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, QMessageBox, QGraphicsScene, QGraphicsView, QGraphicsItem, QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor 
+from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, \
+                         QIcon, QDialog, QFileDialog, QAction, QStyle, QWidget, QFrame, \
+                         QLabel, QTabWidget, QLineEdit, QTextEdit, QPushButton, QToolBox, \
+                         QGroupBox, QCheckBox, QComboBox, QSplitter, QMessageBox, \
+                         QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, \
+                         QGraphicsScene, QGraphicsView, QGraphicsItem, QTransform, \
+                         QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, \
+                         QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor, QPolygonF, QGraphicsPolygonItem
+                         
 from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
@@ -122,13 +130,25 @@ class DiagramConnector(QGraphicsLineItem):
     """
     A {DiagramConnector} is a visual representation of an {flow.Interface}s successor.
     """
+    HEAD_SIZE = 10
+    
     def __init__(self, *args):
         QGraphicsLineItem.__init__(self, *args)
-        self.setPen(QPen(Qt.darkMagenta, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        self.setAcceptHoverEvents(True)
-        self.setZValue(-1000)
         self.startItem = None
         self.endItem   = None
+        
+        pen = QPen(Qt.darkMagenta, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        
+        self.setAcceptHoverEvents(True)
+        self.setZValue(-1000)
+        self.setPen(pen)
+        
+        polyhead = QPolygonF([QPointF(-self.HEAD_SIZE/2,- self.HEAD_SIZE-3), \
+                              QPointF( self.HEAD_SIZE/2, -self.HEAD_SIZE-3), \
+                              QPointF(0, -3)])
+        self.arrowhead = QGraphicsPolygonItem(polyhead, self, self.scene())
+        self.arrowhead.setPen(pen)
+        self.arrowhead.setBrush(Qt.darkMagenta)
 
     def __unicode__(self):
         return u"%s - %s" % (self.startItem, self.endItem)
@@ -147,13 +167,23 @@ class DiagramConnector(QGraphicsLineItem):
 
     def moveOrigin(self, pos):
         endpos = self.line().p2()
-        #print "Move line", self, pos, endpos
         self.setLine(QLineF(pos, endpos))
         
     def moveEnd(self, pos):
         oripos = self.line().p1()
-        #print "Move line", self, oripos, pos
         self.setLine(QLineF(oripos, pos))
+        # Rotate arrow head
+        self.arrowhead.setPos(pos)
+        l = self.line().length()
+        if l == 0: l = 1
+        # Compute angle of arrow
+        angle = math.acos(self.line().dx() / l) - math.pi/2
+        if self.line().dy() < 0:
+            angle = math.pi - angle
+        # Apply transformation to arrow head
+        rotation = QTransform(math.cos(angle), math.sin(angle), \
+                             -math.sin(angle), math.cos(angle), 0, 0)
+        self.arrowhead.setTransform(rotation)
 
     def updatePosition(self):
         offset = QPointF(SlotItem.SIZE/2, SlotItem.SIZE/2, )
