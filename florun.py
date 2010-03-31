@@ -99,7 +99,7 @@ def main(prefix):
             runner.start()
             
         except FlowException, e:
-            logcore.error(e)
+            logcore.exception(e)
             return 1
         except KeyboardInterrupt, e:
             logcore.error(_("Interrupted by user"))

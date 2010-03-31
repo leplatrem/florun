@@ -519,9 +519,7 @@ class Node (object):
             self.run()
             self.debug(_("Done."))
         except Exception, e:
-            errtype, message, tb = sys.exc_info() 
-            self.error('%s' % e)
-            self.debug(traceback2str(tb))
+            self.exception(e)
             
         self.running = False
         self.canRun.clear()

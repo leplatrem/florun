@@ -257,6 +257,7 @@ class DiagramItem(QGraphicsItemGroup):
         self.showSlots()
 
     def itemChange(self, change, value):
+        r = QGraphicsItemGroup.itemChange(self, change, value)
         # Selection state
         if change == QGraphicsItem.ItemSelectedChange:
             QObject.emit(self.scene(), SIGNAL("selectedChanged"), self)
@@ -265,7 +266,7 @@ class DiagramItem(QGraphicsItemGroup):
             for s in self.slotitems:
                 for c in s.connectors:
                     c.updatePosition()
-        return QGraphicsItemGroup.itemChange(self, change, value)
+        return r
 
     def findSlot(self, interface):
         """
@@ -774,8 +775,6 @@ class ParametersEditor(QWidget):
         
         # Parameters Layout
         self.paramlayout = QVBoxLayout()
-        self.paramlayout.addStretch()
-        self.paramlayout.addWidget(buttonswidget)
         parameterbox = QGroupBox()
         parameterbox.setTitle(self.tr("Parameters"))
         parameterbox.setLayout(self.paramlayout)     
@@ -792,6 +791,8 @@ class ParametersEditor(QWidget):
         mainlayout = QVBoxLayout()
         mainlayout.addWidget(self.informationbox)
         mainlayout.addWidget(parameterbox)
+        mainlayout.addStretch()
+        mainlayout.addWidget(buttonswidget)
 
         self.setLayout(mainlayout)   
         

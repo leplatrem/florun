@@ -44,6 +44,8 @@ class Logger(object):
         self.logger.warning(str)
     def error(self, str):
         self.logger.error(str)
+    def exception(self, e, *args):
+        self.logger(e, *args)
 
 logcore = Logger('florun-core')
 loggui  = Logger('florun-ui')
