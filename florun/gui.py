@@ -856,8 +856,8 @@ class ParametersEditor(QWidget):
                                                  self.tr(u"Do you want to apply changes?"))
                 if answer == QMessageBox.Yes:
                     self.save()
-            # Clear loaded item, Update it on scene
-            self.item.update()
+                # Clear loaded item, Update it on scene
+                self.item.update()
         
         # Now clear the panel, and reinitialize widgets
         if self.formwidget is not None: 
