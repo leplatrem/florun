@@ -1,7 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
-import os, sys, copy, math
+import os
+import sys
+import copy
+import math
+import logging
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, \
@@ -12,33 +16,38 @@ from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButto
                          QGraphicsScene, QGraphicsView, QGraphicsItem, QTransform, \
                          QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, \
                          QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor, QPolygonF, QGraphicsPolygonItem
-                         
 from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
 from florun.flow  import *
-from florun.utils import logcore, loggui, itersubclasses, groupby, empty
+from florun.utils import itersubclasses, groupby, empty
+
+
+logger = logging.getLogger(__name__)
+
 
 """
-
+    
    Diagram items
-
+    
 """
+
+
 class SlotItem(QGraphicsEllipseItem):
     """
     A {SlotItem} is the graphical representation of a {flow.Interface}.
     """
     SIZE = 12
-    COLORS = {InterfaceValue :QColor(255,255,64), 
-              InterfaceStream:QColor(255,159,64),
-              InterfaceList  :QColor(159,255,64),}
+    COLORS = {InterfaceValue  : QColor(255, 255, 64),
+              InterfaceStream : QColor(255, 159, 64),
+              InterfaceList   : QColor(159, 255, 64)}
     TEXT_LEFT, TEXT_RIGHT, TEXT_BOTTOM, TEXT_TOP = range(4)
-    
-    def __init__(self, parent, interface, textposition = None):
+
+    def __init__(self, parent, interface, textposition=None):
         """
         @type parent : L{DiagramItem}
         @type interface : L{flow.Interface}
-        @param textpostition : L{SlotItem.TEXT_LEFT}, ... L{SlotItem.TEXT_TOP} 
+        @param textpostition : L{SlotItem.TEXT_LEFT}, ... L{SlotItem.TEXT_TOP}
         """
         QGraphicsEllipseItem.__init__(self, parent)
         assert issubclass(parent.__class__, DiagramItem)
@@ -80,7 +89,7 @@ class SlotItem(QGraphicsEllipseItem):
     @property
     def highlight(self):
         return self._highlight
-    
+
     @highlight.setter
     def highlight(self, state):
         self._highlight = state
@@ -92,7 +101,7 @@ class SlotItem(QGraphicsEllipseItem):
             else:
                 self.setPen(QPen(Qt.darkMagenta, 2))
 
-    def connect(self, connector, start = True):
+    def connect(self, connector, start=True):
         if start:
             connector.startItem = self
         else:
@@ -108,22 +117,21 @@ class SlotItem(QGraphicsEllipseItem):
         textrect = self.text.boundingRect()
         x = y = 0
         if self.textposition == SlotItem.TEXT_TOP:
-            x = x - textrect.width()/2 + self.SIZE/2
+            x = x - textrect.width() / 2 + self.SIZE / 2
             y = y - self.SIZE - 2
         elif self.textposition == SlotItem.TEXT_BOTTOM:
-            x = x - textrect.width()/2 + self.SIZE/2
+            x = x - textrect.width() / 2 + self.SIZE / 2
             y = y + self.SIZE
         elif self.textposition == SlotItem.TEXT_LEFT:
             x = x - textrect.width()
-            y = y - textrect.height()/4
+            y = y - textrect.height() / 4
         elif self.textposition == SlotItem.TEXT_RIGHT:
             x = x + self.SIZE
-            y = y - textrect.height()/4
+            y = y - textrect.height() / 4
         return QPointF(x, y)
 
     def __unicode__(self):
         return u"%s:%s (%s)" % (self.parent, self.label, len(self.connectors))
-
 
 
 class DiagramConnector(QGraphicsLineItem):
@@ -131,20 +139,20 @@ class DiagramConnector(QGraphicsLineItem):
     A {DiagramConnector} is a visual representation of an {flow.Interface}s successor.
     """
     HEAD_SIZE = 10
-    
+
     def __init__(self, *args):
         QGraphicsLineItem.__init__(self, *args)
         self.startItem = None
         self.endItem   = None
-        
+
         pen = QPen(Qt.darkMagenta, 3, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-        
+
         self.setAcceptHoverEvents(True)
         self.setZValue(-1000)
         self.setPen(pen)
-        
-        polyhead = QPolygonF([QPointF(-self.HEAD_SIZE/2,- self.HEAD_SIZE-3), \
-                              QPointF( self.HEAD_SIZE/2, -self.HEAD_SIZE-3), \
+
+        polyhead = QPolygonF([QPointF(-self.HEAD_SIZE / 2, -self.HEAD_SIZE - 3),
+                              QPointF( self.HEAD_SIZE / 2, -self.HEAD_SIZE - 3),
                               QPointF(0, -3)])
         self.arrowhead = QGraphicsPolygonItem(polyhead, self, self.scene())
         self.arrowhead.setPen(pen)
@@ -152,7 +160,7 @@ class DiagramConnector(QGraphicsLineItem):
 
     def __unicode__(self):
         return u"%s - %s" % (self.startItem, self.endItem)
-    
+
     def canConnect(self, endItem):
         """
         Test if startitem and specified endslot are compatible
@@ -168,25 +176,24 @@ class DiagramConnector(QGraphicsLineItem):
     def moveOrigin(self, pos):
         endpos = self.line().p2()
         self.setLine(QLineF(pos, endpos))
-        
+
     def moveEnd(self, pos):
         oripos = self.line().p1()
         self.setLine(QLineF(oripos, pos))
         # Rotate arrow head
         self.arrowhead.setPos(pos)
-        l = self.line().length()
-        if l == 0: l = 1
+        l = self.line().length() or 1
         # Compute angle of arrow
-        angle = math.acos(self.line().dx() / l) - math.pi/2
+        angle = math.acos(self.line().dx() / l) - math.pi / 2
         if self.line().dy() < 0:
             angle = math.pi - angle
         # Apply transformation to arrow head
-        rotation = QTransform(math.cos(angle), math.sin(angle), \
+        rotation = QTransform(math.cos(angle), math.sin(angle),
                              -math.sin(angle), math.cos(angle), 0, 0)
         self.arrowhead.setTransform(rotation)
 
     def updatePosition(self):
-        offset = QPointF(SlotItem.SIZE/2, SlotItem.SIZE/2, )
+        offset = QPointF(SlotItem.SIZE / 2, SlotItem.SIZE / 2)
         oripos = QPointF()
         if self.startItem is not None:
             orirec = self.startItem.sceneBoundingRect()
@@ -198,7 +205,7 @@ class DiagramConnector(QGraphicsLineItem):
             self.moveEnd(endpos)
         else:
             self.moveEnd(oripos)
-    
+
     def hoverEnterEvent(self, event):
         # Do not consider hovering connector, if over slot.
         hoverSlot = False
@@ -208,12 +215,10 @@ class DiagramConnector(QGraphicsLineItem):
         if not hoverSlot:
             QObject.emit(self.scene(), SIGNAL("connectorEnterEvent"), self)
         QGraphicsLineItem.hoverEnterEvent(self, event)
-    
+
     def hoverLeaveEvent(self, event):
         QObject.emit(self.scene(), SIGNAL("connectorLeaveEvent"), self)
         QGraphicsLineItem.hoverLeaveEvent(self, event)
-
-
 
 
 class DiagramItem(QGraphicsItemGroup):
@@ -221,7 +226,7 @@ class DiagramItem(QGraphicsItemGroup):
     A {DiagramItem} is the graphical representation of a {flow.Node}.
     """
     SVG_SHAPE = ''
-    
+
     def __init__(self, *args):
         QGraphicsItemGroup.__init__(self, *args)
         #self.setAcceptHoverEvents(True)
@@ -242,6 +247,7 @@ class DiagramItem(QGraphicsItemGroup):
     @property
     def node(self):
         return self._node
+
     @node.setter
     def node(self, node):
         self._node = node
@@ -250,14 +256,14 @@ class DiagramItem(QGraphicsItemGroup):
 
     @staticmethod
     def factory(classobj):
-        mappings = {ProcessNode  : DiagramItemProcess(),
-                    InputNode    : DiagramItemInput(),
-                    OutputNode   : DiagramItemOutput()}
+        mappings = {ProcessNode : DiagramItemProcess(),
+                    InputNode   : DiagramItemInput(),
+                    OutputNode  : DiagramItemOutput()}
         for mainclass, diagramitem in mappings.items():
             if issubclass(classobj, mainclass):
                 return diagramitem
         raise Exception(_("Unknown node type '%s'") % classobj.__name__)
-        
+
     def buildItem(self):
         self.text = QGraphicsTextItem()
         f = QFont()
@@ -269,7 +275,7 @@ class DiagramItem(QGraphicsItemGroup):
     def SVGShape(self):
         path = os.path.join(florun.icons_dir, self.SVG_SHAPE)
         if not os.path.exists(path):
-            loggui.warning("SVG missing '%s'" % path)
+            logger.warning("SVG missing '%s'" % path)
         return path
 
     def update(self):
@@ -279,7 +285,7 @@ class DiagramItem(QGraphicsItemGroup):
         # Center text item
         itemrect = self.boundingRect()
         textrect = self.text.boundingRect()
-        self.text.setPos(QPointF(itemrect.x() + itemrect.width()/2 - textrect.width()/2, 
+        self.text.setPos(QPointF(itemrect.x() + itemrect.width() / 2 - textrect.width() / 2,
                                 -textrect.height() + itemrect.y() + itemrect.height() / 2))
         if textrect.width() > itemrect.width():
             self.text.setTextWidth(itemrect.width())
@@ -314,7 +320,7 @@ class DiagramItem(QGraphicsItemGroup):
         textpositions = {Interface.PARAMETER : SlotItem.TEXT_RIGHT,
                          Interface.INPUT     : SlotItem.TEXT_BOTTOM,
                          Interface.RESULT    : SlotItem.TEXT_LEFT,
-                         Interface.OUTPUT    : SlotItem.TEXT_TOP,}
+                         Interface.OUTPUT    : SlotItem.TEXT_TOP}
         for interface in self.node.interfaces:
             textposition = textpositions.get(interface.type, None)
             slot = SlotItem(self, interface, textposition)
@@ -330,10 +336,10 @@ class DiagramItem(QGraphicsItemGroup):
         """
         4-tuple : top, right, bottom, left
         """
-        return (0,0,0,0)
+        return (0, 0, 0, 0)
 
     def showSlot(self, slot, state):
-        """ 
+        """
         Show/Hide specific slot
         @type state : bool
         """
@@ -342,21 +348,21 @@ class DiagramItem(QGraphicsItemGroup):
         selected = self.isSelected()
         # Show/Hide slot
         slot.setVisible(state)
-        
+
         # Disconnect all connectors
         if not state:
             for c in slot.connectors:
                 self.scene().removeConnector(c, True)
-        
+
         # Spread on side
         rect = self.boundingRect()
-        
+
         # List all visible slot on each side
         left   = [s for s in self.slotitems if s.textposition == SlotItem.TEXT_RIGHT  and s.isVisible()]
         right  = [s for s in self.slotitems if s.textposition == SlotItem.TEXT_LEFT   and s.isVisible()]
         top    = [s for s in self.slotitems if s.textposition == SlotItem.TEXT_BOTTOM and s.isVisible()]
         bottom = [s for s in self.slotitems if s.textposition == SlotItem.TEXT_TOP    and s.isVisible()]
-        
+
         # Find out positions intervals and offsets
         offtop, offright, offbottom, offleft = self.boundingOffsets()
         # slot's textposition allows to know on which side slot appears
@@ -369,7 +375,7 @@ class DiagramItem(QGraphicsItemGroup):
             sizex, sizey = (0, rect.height())
         elif slot.textposition == SlotItem.TEXT_LEFT:
             sidelist = right
-            corner = QPointF(rect.x() + rect.width() + offright, rect.y()) 
+            corner = QPointF(rect.x() + rect.width() + offright, rect.y())
             sizex, sizey = (0, rect.height())
         elif slot.textposition == SlotItem.TEXT_BOTTOM:
             sidelist = top
@@ -379,25 +385,25 @@ class DiagramItem(QGraphicsItemGroup):
             sidelist = bottom
             corner = QPointF(rect.x(), rect.y() + rect.height() + offbottom)
             sizex, sizey = (rect.width(), 0)
-        
+
         intervalx = sizex / (len(sidelist) + 1)
         intervaly = sizey / (len(sidelist) + 1)
-        offset = QPointF(-SlotItem.SIZE/2, -SlotItem.SIZE/2)
-        
+        offset = QPointF(-SlotItem.SIZE / 2, -SlotItem.SIZE / 2)
+
         for j, s in enumerate(sidelist):
-            position = corner + offset + QPointF(intervalx * (j+1), intervaly * (j+1))
+            position = corner + offset + QPointF(intervalx * (j + 1), intervaly * (j + 1))
             s.setPos(position)
         # Reset selected state that was lost
         self.setSelected(selected)
         self.hackselected = False
 
 
-
 class DiagramItemProcess(DiagramItem):
     SVG_SHAPE = "item-process.svg"
+
     def __init__(self, *args):
         DiagramItem.__init__(self, *args)
-    
+
     def buildItem(self):
         DiagramItem.buildItem(self)
         frame = QGraphicsSvgItem(self.SVGShape())
@@ -415,7 +421,8 @@ class DiagramItemInput(DiagramItem):
         self.update()
 
     def boundingOffsets(self):
-        return (0,-10,0,10)
+        return (0, -10, 0, 10)
+
 
 class DiagramItemOutput(DiagramItem):
     SVG_SHAPE = "item-output.svg"
@@ -427,19 +434,21 @@ class DiagramItemOutput(DiagramItem):
         self.update()
 
     def boundingOffsets(self):
-        return (0,-10,0,10)
+        return (0, -10, 0, 10)
 
 """
-
+    
    Diagram scene
-
+    
 """
+
 
 class DiagramScene(QGraphicsScene):
     """
     The {DiagramScene} contains all methods to add and remove graphical items.
     Events of user actions are emitted here.
     """
+
     def __init__(self, *args):
         QGraphicsScene.__init__(self, *args)
         QObject.connect(self, SIGNAL("slotEnterEvent"), self.slotEnterEvent)
@@ -462,8 +471,8 @@ class DiagramScene(QGraphicsScene):
         v = self.views()
         if len(v) > 0:
             return v[0]
-        return None        
-    
+        return None
+
     def dragEnterEvent(self, event):
         QGraphicsScene.dragEnterEvent(self, event)
         if event.mimeData().hasFormat('text/plain'):
@@ -510,7 +519,7 @@ class DiagramScene(QGraphicsScene):
         if emit:
             QObject.emit(self, SIGNAL("diagramItemCreated"), item)
         return item
-        
+
     def removeDiagramItem(self, item):
         for slot in item.slotitems:
             toremove = copy.copy(slot.connectors)
@@ -523,22 +532,22 @@ class DiagramScene(QGraphicsScene):
         connector = DiagramConnector()
         self.addItem(connector)
         startSlot.connect(connector, start=True)
-        # If endSlot is not given, then the user is now drawing 
+        # If endSlot is not given, then the user is now drawing
         if endSlot is not None:
             endSlot.connect(connector, start=False)
-            loggui.debug("%s %s" % (self.tr(u"Connector added"), connector))
+            logger.debug("%s %s" % (self.tr(u"Connector added"), connector))
             if emit:
                 QObject.emit(self, SIGNAL("connectorCreated"), connector)
         connector.updatePosition()
         return connector
 
     def removeConnector(self, connector, event=False):
-        loggui.debug(self.tr(u"Disconnect %1").arg(u'%s'%connector))
+        logger.debug(self.tr(u"Disconnect %1").arg(u'%s'%connector))
         connector.disconnect()
         self.removeItem(connector)
         self.connectorLeaveEvent(connector)
         if event:
-            loggui.debug((self.tr(u"Connector removed : %1").arg(u'%s'%connector)))
+            logger.debug((self.tr(u"Connector removed : %1").arg(u'%s'%connector)))
             QObject.emit(self, SIGNAL("connectorRemoved"), connector)
 
     def findDiagramItemByNode(self, node):
@@ -573,7 +582,7 @@ class DiagramScene(QGraphicsScene):
         if hoverslot is not None and self.slotHover is None:
             QObject.emit(self, SIGNAL("slotEnterEvent"), hoverslot)
         self.slotHover = hoverslot
-        
+
         # If not drawing connector, items are movable
         if self.connector is None:
             QGraphicsScene.mouseMoveEvent(self, mouseEvent)
@@ -584,11 +593,11 @@ class DiagramScene(QGraphicsScene):
             self.removeConnector(self.connectorHover, True)
         elif self.connector is not None:
             # Create connector
-            if self.slot is not None:              
+            if self.slot is not None:
                 if self.connector.canConnect(self.slot):
                     # Check if connector already exists
                     exists = False
-                    for i in [item for item in self.items() if issubclass(item.__class__,DiagramConnector)]:
+                    for i in [item for item in self.items() if issubclass(item.__class__, DiagramConnector)]:
                         if i.startItem == self.connector.startItem and i.endItem == self.slot:
                             exists = True
                     if not exists:
@@ -615,13 +624,12 @@ class DiagramScene(QGraphicsScene):
         self.connector = None
         self.slot = None
         QGraphicsScene.mouseReleaseEvent(self, mouseEvent)
-    
+
     def itemSelected(self, item):
         # Due to DiagramItem::showSlot() l.350 auto deselect  !
         # http://www.qtforum.org/article/32164/setvisible-on-a-qgraphicsitemgroup-child-changes-the-group-selected-state.html
         if item.hackselected is False:
             QObject.emit(self, SIGNAL("DiagramItemSelected"), item)
-
 
 """
 
@@ -629,12 +637,14 @@ class DiagramScene(QGraphicsScene):
 
 """
 
+
 class NodeLibrary(QToolBox):
     """
     The {NodeLibrary} contains different sets of {LibraryItem}s.
     The {QtGui.QToolBox} allows to have collapsable widgets.
     """
     MAX_PER_LINE = 2
+
     def __init__(self, *args):
         QToolBox.__init__(self, *args)
         self.loadSets()
@@ -644,9 +654,9 @@ class NodeLibrary(QToolBox):
         # Add sets according to groups
         for itemgroup in libs:
             set = []
-            for classobj in sorted(itemgroup, cmp=lambda x,y: cmp(x.label, y.label)):
+            for classobj in sorted(itemgroup, cmp=lambda x, y: cmp(x.label, y.label)):
                 item = DiagramItem.factory(classobj)
-                loggui.debug(u"Adding %s/%s in nodes library" % (type(item).__name__, classobj.__name__))
+                logger.debug(u"Adding %s/%s in nodes library" % (type(item).__name__, classobj.__name__))
                 item = LibraryItem(classobj.__name__, classobj.label, item.SVGShape())
                 set.append(item)
             self.addSet(set, itemgroup[0].category)
@@ -656,7 +666,6 @@ class NodeLibrary(QToolBox):
         @type widgets : list of {LibraryItem}
         @param label  : the name of the set of items
         @type label   : string
-        
         """
         layout = QGridLayout()
         layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -668,6 +677,7 @@ class NodeLibrary(QToolBox):
 
 
 class LibraryItem(QFrame):
+
     def __init__(self, id, label, iconfile):
         QFrame.__init__(self)
         self.id = id
@@ -680,11 +690,11 @@ class LibraryItem(QFrame):
         font = title.font()
         font.setPixelSize(10)
         title.setFont(font)
-        layout.addWidget(title, 1, 0, Qt.AlignTop|Qt.AlignHCenter)
+        layout.addWidget(title, 1, 0, Qt.AlignTop | Qt.AlignHCenter)
         self.setLayout(layout)
         self.setMaximumSize(80, 80)
         self._window = None
-    
+
     @property
     def window(self):
         if self._window is None:
@@ -697,16 +707,17 @@ class LibraryItem(QFrame):
     """
     Drag and drop management
     """
+
     def enterEvent(self, event):
         self.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         self.setCursor(Qt.OpenHandCursor)
         # Show description in status bar
         self.window.setStatusMessage(eval(self.id).description)
-        
+
     def leaveEvent(self, event):
         self.setFrameStyle(QFrame.NoFrame)
         self.setCursor(Qt.ArrowCursor)
-    
+
     def mousePressEvent(self, mouseEvent):
         self.setCursor(Qt.ClosedHandCursor)
 
@@ -729,30 +740,32 @@ class LibraryItem(QFrame):
         if dropAction == Qt.MoveAction:
             self.close()
 
-
 """
-
+    
     Parameters Editor
-
+    
 """
+
+
 class ParameterField(QWidget):
     """
     A form widget for the {ParameterEditor}.
-    It will reflect its associated L{flow.Interface}. 
+    It will reflect its associated L{flow.Interface}.
     """
+
     def __init__(self, interface, *args):
         """
         @type interface : L{flow.Interface}
         """
         QWidget.__init__(self, *args)
         self.interface = interface
-        
+
         self.label = self.tr(interface.name)
-       
+
         self.edit     = QLineEdit(self)
         self.checkbox = QCheckBox(self.tr(u'slot'), self)
         self.checkbox.setToolTip(self.tr(u'Use slot input'))
-        
+
         layout = QHBoxLayout()
         layout.addWidget(self.edit)
         layout.addWidget(self.checkbox)
@@ -771,21 +784,22 @@ class ParameterField(QWidget):
         if self.interface.value is not None and not slotstate:
             value = self.interface.value
         self.edit.setText(value)
-    
+
     @property
     def checked(self):
         return self.checkbox.checkState() == Qt.Checked
 
 
 class ParametersEditor(QWidget):
+
     def __init__(self, parent, scene, *args):
         QWidget.__init__(self, *args)
         self.parent = parent
         self.scene = scene
-               
+
         # Actions
         self.btnDelete = QPushButton(self.tr("Delete"))
-        self.btnDelete.setIcon(self.parent.loadIcon('edit-delete')) 
+        self.btnDelete.setIcon(self.parent.loadIcon('edit-delete'))
         self.btnCancel = QPushButton(self.tr("Undo"))
         self.btnCancel.setIcon(self.parent.loadIcon('edit-undo'))
         self.btnSave = QPushButton(self.tr("Apply"))
@@ -794,7 +808,7 @@ class ParametersEditor(QWidget):
         QObject.connect(self.btnDelete, SIGNAL("clicked()"), self.delete)
         QObject.connect(self.btnCancel, SIGNAL("clicked()"), self.cancel)
         QObject.connect(self.btnSave,   SIGNAL("clicked()"), self.save)
-        
+
         # Buttons
         buttonslayout = QHBoxLayout()
         buttonslayout.addWidget(self.btnDelete)
@@ -802,30 +816,30 @@ class ParametersEditor(QWidget):
         buttonslayout.addWidget(self.btnSave)
         buttonswidget = QWidget()
         buttonswidget.setLayout(buttonslayout)
-        
+
         # Parameters Layout
         self.paramlayout = QVBoxLayout()
         parameterbox = QGroupBox()
         parameterbox.setTitle(self.tr("Parameters"))
-        parameterbox.setLayout(self.paramlayout)     
-        
+        parameterbox.setLayout(self.paramlayout)
+
         # Information Layout
         self.lbldescription = QLabel()
         self.lbldescription.setWordWrap(True)
-        
+
         infolayout = QVBoxLayout()
         infolayout.addWidget(self.lbldescription)
         self.informationbox = QGroupBox()
         self.informationbox.setLayout(infolayout)
-        
+
         mainlayout = QVBoxLayout()
         mainlayout.addWidget(self.informationbox)
         mainlayout.addWidget(parameterbox)
         mainlayout.addStretch()
         mainlayout.addWidget(buttonswidget)
 
-        self.setLayout(mainlayout)   
-        
+        self.setLayout(mainlayout)
+
         # Form item
         self.formwidget = None
         self.formlayout = None
@@ -834,10 +848,10 @@ class ParametersEditor(QWidget):
         self.nodeId     = None
         self.extrafields = {}
         self.changed    = False
-        
+
         # Init form with default fields
         self.clear()
-    
+
     def enable(self):
         state = self.item is not None
         self.nodeId.setEnabled(state)
@@ -846,7 +860,7 @@ class ParametersEditor(QWidget):
         self.btnDelete.setEnabled(state)
         self.btnCancel.setEnabled(state and self.changed)
         self.btnSave.setEnabled(state and self.changed)
-    
+
     def clear(self):
         # If item fields were changed ?
         if self.item is not None:
@@ -858,35 +872,35 @@ class ParametersEditor(QWidget):
                     self.save()
                 # Clear loaded item, Update it on scene
                 self.item.update()
-        
+
         # Now clear the panel, and reinitialize widgets
-        if self.formwidget is not None: 
+        if self.formwidget is not None:
             self.paramlayout.removeWidget(self.formwidget)
             self.formwidget.setParent(None)
-        
+
         # Common fields
         self.lbldescription.setText('')
         self.informationbox.setTitle(self.tr("Node"))
-        
+
         self.nodeId = QLineEdit('', self)
         self.formlayout = QFormLayout()
         self.formlayout.addRow(self.tr("Id"), self.nodeId)
-        
+
         self.formwidget = QWidget()
         self.formwidget.setLayout(self.formlayout)
         self.paramlayout.insertWidget(0, self.formwidget)
-        
+
         self.item = None
         self.changed = False
         self.extrafields = {}
-        
+
         # Enable widgets
         self.enable()
 
     def delete(self):
         self.scene.removeDiagramItem(self.item)
         self.clear()
-        
+
     def cancel(self):
         self.changed = False
         self.load(self.item)
@@ -894,10 +908,10 @@ class ParametersEditor(QWidget):
     def load(self, item):
         self.clear()
         self.item = item
-        
+
         self.informationbox.setTitle(item.node.category + " : " + item.node.label)
         self.lbldescription.setText(item.node.description)
-        
+
         self.nodeId.setText(item.node.id)
         # For each node interface, add a widget
         for interface in item.node.interfaces:
@@ -914,7 +928,7 @@ class ParametersEditor(QWidget):
                 self.extrafields[interface.name] = w
         QObject.connect(self.nodeId, SIGNAL("textChanged(QString)"), self.entriesChanged)
         self.enable()
-    
+
     def save(self):
         userentries = {}
         userentries['id'] = (self.nodeId.text(), None)
@@ -927,7 +941,7 @@ class ParametersEditor(QWidget):
         self.item.update()
         self.enable()
         QObject.emit(self, SIGNAL("diagramItemChanged"), self.item)
-    
+
     def showSlot(self, state):
         for w in self.extrafields.values():
             w.setSlot(w.checked)
@@ -938,59 +952,61 @@ class ParametersEditor(QWidget):
             if w.interface.slot != w.checked:
                 self.changed = True
                 self.enable()
-    
+
     def entriesChanged(self):
         self.changed = True
-        self.enable()        
+        self.enable()
+
 
 class FlowConsole(QWidget):
+
     def __init__(self, *args):
         QWidget.__init__(self, *args)
         self.process = None
-        
+
         self.cbloglevel = QComboBox()
-        self.cbloglevel.insertItem(0, self.tr("Errors only"),    logcore.ERROR)
-        self.cbloglevel.insertItem(1, self.tr("Warnings"),       logcore.WARNING)
-        self.cbloglevel.insertItem(2, self.tr("Information"),    logcore.INFO)
-        self.cbloglevel.insertItem(3, self.tr("Debug messages"), logcore.DEBUG)
+        self.cbloglevel.insertItem(0, self.tr("Errors only"),    logging.ERROR)
+        self.cbloglevel.insertItem(1, self.tr("Warnings"),       logging.WARNING)
+        self.cbloglevel.insertItem(2, self.tr("Information"),    logging.INFO)
+        self.cbloglevel.insertItem(3, self.tr("Debug messages"), logging.DEBUG)
         self.cbloglevel.setCurrentIndex(2)
-        
+
         self.lblloglevel = QLabel(self.tr("Output"))
         self.lblloglevel.setBuddy(self.cbloglevel)
-        
+
         hlbox = QHBoxLayout()
         hlbox.addWidget(self.lblloglevel)
         hlbox.addWidget(self.cbloglevel)
         hlbox.addStretch()
         hbox = QWidget()
         hbox.setLayout(hlbox)
-        
+
         self.console = QTextEdit()
         self.console.setAcceptRichText(False)
-        
+
         self.mainlayout = QVBoxLayout()
         self.mainlayout.addWidget(hbox)
-        self.mainlayout.addWidget(self.console)    
+        self.mainlayout.addWidget(self.console)
         self.setLayout(self.mainlayout)
-    
+
     @property
     def loglevel(self):
         idx = self.cbloglevel.currentIndex()
         integer, canconvert = self.cbloglevel.itemData(idx).toInt()
-        return integer        
+        return integer
 
     def enable(self):
         self.cbloglevel.setEnabled(self.process is None)
-        
+
     def attachProcess(self, process):
         self.process = process
         self.console.clear()
         self.enable()
-    
+
     def detachProcess(self):
         self.process = None
         self.enable()
-    
+
     def clear(self):
         self.console.setText('')
 
@@ -1008,24 +1024,25 @@ class FlowConsole(QWidget):
                 stderr = stderr.replace(">", "&gt;")
                 stderr = stderr.replace("\n", "<br/>")
                 self.console.append("<span style=\"color: red\">" + stderr + "</span>")
-            
 
 """
-
+    
     Main Window
-
+    
 """
+
 
 class MainWindow(QMainWindow):
     """
     @type ScissorsCursor : {QCursor}
     """
     ScissorsCursor = None
+
     def __init__(self, filename=None, *args):
         QMainWindow.__init__(self, *args)
-        MainWindow.ScissorsCursor = QCursor(self.loadIcon('cursor-scissors').pixmap(QSize(24,24)))
+        MainWindow.ScissorsCursor = QCursor(self.loadIcon('cursor-scissors').pixmap(QSize(24, 24)))
         self.apptitle = florun.__title__
-        # Main attributes 
+        # Main attributes
         self.basedir = florun.base_dir
         self.asked = False
         self.flow = None
@@ -1039,7 +1056,6 @@ class MainWindow(QMainWindow):
         else:
             self.newFlow()
         self.updateTitle()
-        
 
     def buildWidgets(self):
         # Main widgets
@@ -1065,26 +1081,26 @@ class MainWindow(QMainWindow):
         diagrampanel.setStretchFactor(0, 0)
         diagrampanel.setStretchFactor(1, 1)
         diagrampanel.setStretchFactor(2, 0)
-        
+
         """
         Console Panel
         """
         self.console = FlowConsole(self)
-        
+
         # Build tabs
         self.maintabs = QTabWidget()
         self.maintabs.addTab(diagrampanel, self.tr("Scheme"))
-        self.maintabs.addTab(self.console, self.tr("Console"))    
+        self.maintabs.addTab(self.console, self.tr("Console"))
         self.setCentralWidget(self.maintabs)
-        
+
         # Connect events
-        QObject.connect(self.scene, SIGNAL("DiagramItemSelected"),self.diagramItemSelected)
-        QObject.connect(self.scene, SIGNAL("diagramItemCreated"), self.diagramItemCreated)
-        QObject.connect(self.scene, SIGNAL("diagramItemRemoved"), self.diagramItemRemoved)
-        QObject.connect(self.scene, SIGNAL("connectorCreated"),   self.connectorCreated)
-        QObject.connect(self.scene, SIGNAL("connectorRemoved"),   self.connectorRemoved)
-        QObject.connect(self.scene, SIGNAL("diagramItemMoved"),   self.diagramItemMoved)
-        
+        QObject.connect(self.scene, SIGNAL("DiagramItemSelected"), self.diagramItemSelected)
+        QObject.connect(self.scene, SIGNAL("diagramItemCreated"),  self.diagramItemCreated)
+        QObject.connect(self.scene, SIGNAL("diagramItemRemoved"),  self.diagramItemRemoved)
+        QObject.connect(self.scene, SIGNAL("connectorCreated"),    self.connectorCreated)
+        QObject.connect(self.scene, SIGNAL("connectorRemoved"),    self.connectorRemoved)
+        QObject.connect(self.scene, SIGNAL("diagramItemMoved"),    self.diagramItemMoved)
+
         QObject.connect(self.parameters, SIGNAL("diagramItemChanged"), self.diagramItemChanged)
 
     def updateTitle(self):
@@ -1110,8 +1126,8 @@ class MainWindow(QMainWindow):
                 return QIcon.fromTheme(iconid)
         except AttributeError, e:
             pass
-        
-        # Else                                   
+
+        # Else
         # Try in Qt default icons
         lookup = {'edit-delete':      QStyle.SP_TrashIcon,
                   'edit-undo':        QStyle.SP_DialogCancelButton,
@@ -1124,7 +1140,7 @@ class MainWindow(QMainWindow):
         if qticonid is not None:
             style = self.style()
             return style.standardIcon(qticonid)
-        
+
         # Else
         # Guess path of icon
         for base in [florun.icons_dir, '/usr/share/icons/']:
@@ -1135,7 +1151,7 @@ class MainWindow(QMainWindow):
                 if len(list) > 0:
                     path = list[0]
                     if path != '':
-                        loggui.debug("Load icon file from '%s'" % path)
+                        logger.debug("Load icon file from '%s'" % path)
                         return QIcon(QPixmap(path))
         return QIcon(QPixmap())
 
@@ -1144,7 +1160,7 @@ class MainWindow(QMainWindow):
         self.new.setShortcut('Ctrl+N')
         self.new.setStatusTip(self.tr('New flow'))
         self.connect(self.new, SIGNAL('triggered()'), self.newFlow)
-        
+
         self.open = QAction(self.loadIcon('document-open'), self.tr('Open'), self)
         self.open.setShortcut('Ctrl+O')
         self.open.setStatusTip(self.tr('Open flow'))
@@ -1154,36 +1170,36 @@ class MainWindow(QMainWindow):
         self.save.setShortcut('Ctrl+S')
         self.save.setStatusTip(self.tr('Save flow'))
         self.connect(self.save, SIGNAL('triggered()'), self.saveFlow)
-         
+
         self.exit = QAction(self.loadIcon('application-exit'), self.tr('Exit'), self)
         self.exit.setShortcut('Ctrl+Q')
         self.exit.setStatusTip(self.tr('Exit application'))
         self.connect(self.exit, SIGNAL('triggered()'), SLOT('close()'))
-        
+
         self.start = QAction(self.loadIcon('media-playback-start'), self.tr('Start'), self)
         self.start.setShortcut('Ctrl+R')
         self.start.setStatusTip(self.tr('Start flow'))
         self.connect(self.start, SIGNAL('triggered()'), self.startFlow)
-        
+
         self.stop = QAction(self.loadIcon('media-playback-stop'), self.tr('Stop'), self)
         self.stop.setShortcut('Ctrl+S')
         self.stop.setStatusTip(self.tr('Stop running flow'))
         self.connect(self.stop, SIGNAL('triggered()'), self.stopFlow)
         self.stop.setEnabled(False)
-    
+
     def updateSavedState(self):
         self.updateTitle()
         self.save.setEnabled(self.flow.modified)
         self.asked = False
-    
+
     def adjustView(self):
         self.view.setSceneRect(self.scene.itemsBoundingRect())
-    
+
     def center(self):
         screen = QDesktopWidget().screenGeometry()
         size =  self.geometry()
         self.move((screen.width()-size.width())/2, (screen.height()-size.height())/2)
-        
+
     def buildMenuToolbar(self):
         """
         Wait for more families of actions to install menubar
@@ -1198,11 +1214,11 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.new)
         toolbar.addAction(self.open)
         toolbar.addAction(self.save)
-        
+
         toolbar.addSeparator()
         toolbar.addAction(self.start)
         toolbar.addAction(self.stop)
-        
+
         toolbar.addSeparator()
         toolbar.addAction(self.exit)
 
@@ -1210,7 +1226,7 @@ class MainWindow(QMainWindow):
         """
         Build a dialog to allow entering CLI args
         required to start flow.
-        @type argsnames : list of string 
+        @type argsnames : list of string
         """
         dialog = QDialog()
         dialog.setWindowTitle(self.tr("Enter command-line arguments"))
@@ -1218,16 +1234,16 @@ class MainWindow(QMainWindow):
         form = {}
         formlayout = QFormLayout()
         for argname in argsnames:
-            edit = QLineEdit() 
+            edit = QLineEdit()
             form[argname] = edit
             formlayout.addRow(argname, edit)
         formwidget = QWidget()
         formwidget.setLayout(formlayout)
         # Ok / Cancel
-        box = QDialogButtonBox()         
-        box.addButton(QDialogButtonBox.Ok) 
+        box = QDialogButtonBox()
+        box.addButton(QDialogButtonBox.Ok)
         box.addButton(QDialogButtonBox.Cancel)
-        QObject.connect(box, SIGNAL("accepted()"), dialog.accept) 
+        QObject.connect(box, SIGNAL("accepted()"), dialog.accept)
         QObject.connect(box, SIGNAL("rejected()"), dialog.reject)
         vlayout = QVBoxLayout()
         vlayout.addWidget(formwidget)
@@ -1236,19 +1252,18 @@ class MainWindow(QMainWindow):
         dialog.setLayout(vlayout)
         answer = dialog.exec_()
         userentries = {}
-        for name,edit in form.items():
+        for name, edit in form.items():
             txt = edit.text()
             if not empty(txt):
-                userentries[name] = txt    
+                userentries[name] = txt
         return answer, userentries
-    
-        
+
     @classmethod
     def messageException(cls, excType, excValue, tracebackobj):
         errmsg = u"%s: %s" % (str(excType), str(excValue))
         tbinfo = traceback2str(tracebackobj)
-        
-        logcore.debug(errmsg + "\n" + tbinfo)
+
+        logger.debug(errmsg + "\n" + tbinfo)
 
         errorbox = QMessageBox()
         errorbox.setWindowTitle(_(u"Internal Error"))
@@ -1268,7 +1283,7 @@ class MainWindow(QMainWindow):
         msgBox.setStandardButtons(QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
         msgBox.setDefaultButton(QMessageBox.Save)
         return msgBox.exec_()
-    
+
     @classmethod
     def messageYesNo(cls, title, mainText, infoText):
         msgBox = QMessageBox()
@@ -1279,7 +1294,7 @@ class MainWindow(QMainWindow):
         msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msgBox.setDefaultButton(QMessageBox.Yes)
         return msgBox.exec_()
-    
+
     @classmethod
     def messageCancelYesNo(cls, title, mainText, infoText):
         msgBox = QMessageBox()
@@ -1296,46 +1311,46 @@ class MainWindow(QMainWindow):
     Scene events
     
     """
-    
+
     def diagramItemSelected(self, item):
         if not item.isSelected():
             self.parameters.load(item)
         else:
             self.parameters.clear()
-    
+
     def diagramItemMoved(self, item):
         # Set graphical properties (positions, etc)
         pos = item.scenePos()
         if item.node.applyPosition(pos.x(), pos.y()):
-            loggui.debug(self.tr("Main window: diagram item moved : %1").arg(u'%s'%item))
+            logger.debug(self.tr("Main window: diagram item moved : %1").arg(u'%s' % item))
         self.updateSavedState()
-            
+
     def diagramItemChanged(self, item):
         """
         Emitted by {ParameterEditor}
         """
-        loggui.debug(self.tr("Main window: diagram item changed : %1").arg(u'%s'%item))
+        logger.debug(self.tr("Main window: diagram item changed : %1").arg(u'%s' % item))
         self.updateSavedState()
-    
+
     def diagramItemCreated(self, item):
-        loggui.debug(self.tr("Main window: diagram item created : %1").arg(u'%s'%item))
+        logger.debug(self.tr("Main window: diagram item created : %1").arg(u'%s' % item))
         self.flow.addNode(item.node)
         self.updateSavedState()
 
     def diagramItemRemoved(self, item):
-        loggui.debug(self.tr("Main window: diagram item removed : %1").arg(u'%s'%item))
+        logger.debug(self.tr("Main window: diagram item removed : %1").arg(u'%s' % item))
         self.flow.removeNode(item.node)
         self.updateSavedState()
-        
+
     def connectorCreated(self, connector):
-        loggui.debug(self.tr("Main window: diagram connector created : %1").arg(u'%s'%connector))
+        logger.debug(self.tr("Main window: diagram connector created : %1").arg(u'%s' % connector))
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.addConnector(start, end)
         self.updateSavedState()
-    
+
     def connectorRemoved(self, connector):
-        loggui.debug(self.tr("Main window: diagram connector removed : %1").arg(u'%s'%connector))
+        logger.debug(self.tr("Main window: diagram connector removed : %1").arg(u'%s' % connector))
         assert connector.startItem is not None
         assert connector.endItem is not None
         start = connector.startItem.interface
@@ -1343,13 +1358,12 @@ class MainWindow(QMainWindow):
         self.flow.removeConnector(start, end)
         self.updateSavedState()
 
-
     """
     
     Main events
     
     """
-    
+
     def closeEvent(self, event):
         """
         Close the window.
@@ -1376,8 +1390,8 @@ class MainWindow(QMainWindow):
         if self.flow is not None:
             if self.flow.modified:
                 answer = self.messageCancelYesNo(self.tr(u"Save flow ?"),
-                                                       self.tr(u"The flow has been modified."),
-                                                       self.tr("Do you want to save your changes?"))
+                                                 self.tr(u"The flow has been modified."),
+                                                 self.tr("Do you want to save your changes?"))
                 if answer == QMessageBox.Yes:
                     if not self.saveFlow():
                         return # Was not saved, don't clear.
@@ -1410,7 +1424,7 @@ class MainWindow(QMainWindow):
             if filename == '': # User clicked cancel
                 return
 
-        loggui.debug(u"Load file '%s'..." % filename)
+        logger.debug(u"Load file '%s'..." % filename)
         self.basedir = os.path.dirname(filename)
         self.flow = Flow.load(filename)
         self.scene.clear()
@@ -1418,7 +1432,7 @@ class MainWindow(QMainWindow):
         self.console.clear()
         # Switch to console tab
         self.maintabs.setCurrentIndex(0)
-        
+
         # Add graphical items
         for i, n in enumerate(self.flow.nodes):
             posx = n.graphicalprops.get('x', 50 * i)
@@ -1438,7 +1452,7 @@ class MainWindow(QMainWindow):
         self.adjustView()
         # Update save buttons
         self.updateSavedState()
-    
+
     def saveFlow(self):
         """
         Save a flow to a file
@@ -1450,11 +1464,11 @@ class MainWindow(QMainWindow):
             if ask == '': # User clicked cancel
                 return False
             self.flow.filename = ask
-        loggui.debug(u"Save file '%s'..." % self.flow.filename)
+        logger.debug(u"Save file '%s'..." % self.flow.filename)
         self.flow.save()
         self.updateSavedState()
         return True
-    
+
     def startFlow(self):
         """
         Run current flow
@@ -1466,29 +1480,29 @@ class MainWindow(QMainWindow):
             if answer == QMessageBox.Yes:
                 self.saveFlow()
             elif answer == QMessageBox.Cancel:
-                loggui.debug(self.tr("Flow start canceled by user."))
+                logger.debug(self.tr("Flow start canceled by user."))
                 return
             else:
                 self.asked = True
-        
+
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
-        
+
         if len(self.flow.nodes) == 0:
             return
-        
+
         # Ask for args if any
         userargs = {}
         cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() \
                                     if  len(n.name.predecessors) == 0 \
                                     and n.name.value is not None]
         if len(cliargs) > 0:
-            loggui.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
+            logger.debug(self.tr("CLI args required : %1").arg(', '.join(cliargs)))
             answer, userargs = self.FlowCLIArguments(cliargs)
             if answer == QDialog.Rejected:
-                loggui.debug(self.tr("Flow start canceled by user."))
-                return          
-        
+                logger.debug(self.tr("Flow start canceled by user."))
+                return
+
         # Disable widgets
         self.start.setEnabled(False)
         self.stop.setEnabled(True)
@@ -1498,14 +1512,14 @@ class MainWindow(QMainWindow):
         self.connect(self.process, SIGNAL("readyReadStandardOutput()"), self.console.updateConsole)
         self.connect(self.process, SIGNAL("readyReadStandardError()"),  self.console.updateConsole)
         self.connect(self.process, SIGNAL("finished(int, QProcess::ExitStatus)"),  self.onFinishedFlow)
-        
+
         # Run command
         cmd = florun.build_exec_cmd(self.flow, self.console.loglevel, userargs)
-        loggui.debug(self.tr("Start command '%1'").arg(cmd))
+        logger.debug(self.tr("Start command '%1'").arg(cmd))
         self.process.start(cmd)
         # check if command-line error...
         if not self.process.waitForStarted():
-            raise Exception(self.tr("Could not execute flow : %1 : %2").arg(cmd).arg(self.process.error())) 
+            raise Exception(self.tr("Could not execute flow : %1 : %2").arg(cmd).arg(self.process.error()))
 
     def stopFlow(self):
         """
@@ -1513,33 +1527,32 @@ class MainWindow(QMainWindow):
         """
         # Interrupt running thread
         self.process.kill()
-        
+
     def onFinishedFlow(self, exitCode, exitStatus):
         """
         @type exitCode : int
         @type exitStatus : L{QProcess.ExitStatus}
         """
         if exitStatus == QProcess.NormalExit:
-            loggui.debug(self.tr("Flow execution finished (%1)").arg(exitCode))
+            logger.debug(self.tr("Flow execution finished (%1)").arg(exitCode))
         else:
-            loggui.debug(self.tr("Flow execution interrupted by user."))
+            logger.debug(self.tr("Flow execution interrupted by user."))
         # Reinitialize GUI
         self.console.detachProcess()
         self.process = None
         self.start.setEnabled(True)
         self.stop.setEnabled(False)
-                
 
 
 def main(args, filename=None):
-    app = QApplication(args) 
+    app = QApplication(args)
     # Internationalization : Install file according to current locale
     translator = QTranslator()
-    locale = QLocale.system().name() 
-    if translator.load(os.path.join(florun.locale_dir, '%s'%locale, "gui")):
+    locale = QLocale.system().name()
+    if translator.load(os.path.join(florun.locale_dir, '%s' % locale, "gui")):
         app.installTranslator(translator)
     else:
-        loggui.warning("Could not install translator for locale '%s'" % locale)
+        logger.warning("Could not install translator for locale '%s'" % locale)
     # Build window
     mainWindow = MainWindow(filename)
     mainWindow.setGeometry(100, 100, 800, 500)

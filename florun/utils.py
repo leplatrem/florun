@@ -1,84 +1,35 @@
-import logging
+#!/usr/bin/python
+# -*- coding: utf8 -*-
+import cStringIO
+import traceback
 
-class Logger(object):
-    """ Handle and control console and file log output.
-    @ivar logger:    the main log handler
-    @type logger:    L{logging.logger}
-    """
-    DEBUG, INFO, WARNING, ERROR = logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR
-    
-    def __init__(self, name):
-        self.logger = logging.getLogger(name)
-
-        console = logging.StreamHandler()
-        formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
-        console.setFormatter(formatter)
-        self.logger.addHandler(console)
-
-        self.logger.setLevel(self.INFO)
-    
-    def setLevel(self, level):
-        if type(level) != int:
-            level = int(level)
-        if level < self.DEBUG:
-            level = level * 10
-        if level not in [self.DEBUG,self.INFO,self.WARNING,self.ERROR]:
-            level = self.INFO
-        self.logger.setLevel(level)
-
-    def logfile(self, filename):
-        """ Set logfile output.
-        @param filename :    file to write
-        @type  filename :    string
-        """
-        hdlr = logging.FileHandler( filename )
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-        hdlr.setFormatter(formatter)
-        self.logger.addHandler(hdlr)
-
-    def debug(self, str):
-        self.logger.debug(str)
-    def info(self, str):
-        self.logger.info(str)
-    def warning(self, str):
-        self.logger.warning(str)
-    def error(self, str):
-        self.logger.error(str)
-    def exception(self, e, *args):
-        self.logger(e, *args)
-
-logcore = Logger('florun-core')
-loggui  = Logger('florun-ui')
-
-#.......................................................................
 
 def empty(data):
     """
     @type data : can be a list, string, dict
     @rtype: boolean
     """
+    if data is None:
+        return True
     if type(data) == list:
         return len(data) == 0
     if type(data) == dict:
         return len(data.keys()) == 0
-    if data is None:
-        return True
-    return '%s' % data == '' 
+    return '%s' % data == ''
 
-#.......................................................................
 
-def atoi(str):
+def atoi(s):
     """
-    Try convert specified string in integer or float, 
+    Try convert specified string in integer or float,
     and return string otherwise
     """
     try:
-        return int(str)
+        return int(s)
     except:
         try:
-            return float(str)
+            return float(s)
         except:
-            return str
+            return s
 
 
 def groupby(list, attribute):
@@ -95,7 +46,6 @@ def groupby(list, attribute):
 
 
 def traceback2str(tracebackobj):
-    import cStringIO, traceback
     tbinfofile = cStringIO.StringIO()
     traceback.print_tb(tracebackobj, None, tbinfofile)
     tbinfofile.seek(0)
@@ -103,20 +53,18 @@ def traceback2str(tracebackobj):
     return tbinfo
 
 
-#.......................................................................
-
-
 def itersubclasses(cls, _seen=None):
     """
     itersubclasses(cls)
-    
+
     Generator over all subclasses of a given class, in depth first order.
     http://code.activestate.com/recipes/576949/
     """
     if not isinstance(cls, type):
         raise TypeError('itersubclasses must be called with '
                         'new-style classes, not %.100r' % cls)
-    if _seen is None: _seen = set()
+    if _seen is None:
+        _seen = set()
     try:
         subs = cls.__subclasses__()
     except TypeError: # fails only when cls is type
@@ -127,4 +75,3 @@ def itersubclasses(cls, _seen=None):
             yield sub
             for sub in itersubclasses(sub, _seen):
                 yield sub
-
