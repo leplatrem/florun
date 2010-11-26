@@ -1503,9 +1503,15 @@ class MainWindow(QMainWindow):
                 logger.debug(self.tr("Flow start canceled by user."))
                 return
 
+        self.setStatusMessage(self.tr("Flow is now running."), 0)  # no timeout
         # Disable widgets
         self.start.setEnabled(False)
         self.stop.setEnabled(True)
+        # Lock edition
+        self.scene.view.setEnabled(False)
+        self.parameters.setEnabled(False)
+        self.nodelibrary.setEnabled(False)
+
         # Create process
         self.process = QProcess()
         self.console.attachProcess(self.process)
@@ -1534,14 +1540,20 @@ class MainWindow(QMainWindow):
         @type exitStatus : L{QProcess.ExitStatus}
         """
         if exitStatus == QProcess.NormalExit:
-            logger.debug(self.tr("Flow execution finished (%1)").arg(exitCode))
+            msg = self.tr("Flow execution finished (%1)").arg(exitCode)
         else:
-            logger.debug(self.tr("Flow execution interrupted by user."))
+            msg = self.tr("Flow execution interrupted by user.")
+        logger.debug(msg)
+        self.setStatusMessage(msg)
         # Reinitialize GUI
         self.console.detachProcess()
         self.process = None
         self.start.setEnabled(True)
         self.stop.setEnabled(False)
+        # Unlock edition
+        self.scene.view.setEnabled(True)
+        self.parameters.setEnabled(True)
+        self.nodelibrary.setEnabled(True)
 
 
 def main(args, filename=None):
