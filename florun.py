@@ -9,7 +9,7 @@ import gettext
 import florun
 import florun.gui
 import florun.flow
-from florun.flow import FlowException
+from florun.flow import FlowError
 
 
 def showversion():
@@ -93,7 +93,7 @@ def main(prefix):
                     node.options = options
             runner = florun.flow.Runner(wf)
             runner.start()
-        except FlowException, e:
+        except FlowError, e:
             florun.flow.logger.exception(e)
             return 1
         except KeyboardInterrupt, e:

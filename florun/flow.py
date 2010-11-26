@@ -19,17 +19,19 @@ from utils import empty, atoi, traceback2str
 logger = logging.getLogger(__name__)
 
 
-class FlowException(Exception):
+class FlowError(Exception):
     pass
 
 
-class IncompatibilityException(FlowException):
+class IncompatibilityError(FlowError):
     """
     Exception when two Node interfaces are incompatible.
     """
 
     def __init__(self, interface1, interface2):
-        super(self, FlowException).__init__(self, _("%s incompatible with %s") % (interface1.classname, interface2.classname))
+        super(self, FlowError).__init__(self, _("%s incompatible with %s") % (interface1.classname, interface2.classname))
+        self.interface1 = interface1
+        self.interface2 = interface2
 
 
 class Flow(object):
@@ -318,7 +320,7 @@ class Interface(object):
         @type interface : L{Interface}
         """
         if not interface.isCompatible(self):
-            raise IncompatibilityException(interface, self)
+            raise IncompatibilityError(interface, self)
         self.successors.append(interface)
         interface.predecessors.append(self)
         logger.debug(_("%s has following successors : %s") % (self, self.successors))
@@ -638,7 +640,7 @@ class InterfaceStream(Interface):
             self.stream.write(u"\n".join(other.items))
             self.stream.seek(ftell)
         else:
-            raise IncompatibilityException(self, other)
+            raise IncompatibilityError(self, other)
 
 
 class InterfaceList(Interface):
@@ -700,7 +702,7 @@ class FileInputNode (InputNode):
     def run(self):
         # Read file content and pass to output interface
         if empty(self.filepath.value):
-            raise FlowException(_("Filepath empty, cannot read file."))
+            raise FlowError(_("Filepath empty, cannot read file."))
         self.info(_("Read content of file '%s'") % self.filepath.value)
         f = open(self.filepath.value, 'rb')
         for line in f:
@@ -784,7 +786,7 @@ class FileListInputNode (InputNode):
         filelist = []
         dirpath = os.path.abspath(dirpath)
         if not os.path.exists(dirpath):
-            raise FlowException(_("Folder not found '%s'") % dirpath)
+            raise FlowError(_("Folder not found '%s'") % dirpath)
         for f in [ff for ff in os.listdir(dirpath) if ff not in [".", ".."]]:
             nfile = os.path.join(dirpath, f)
             filelist.append(nfile)
