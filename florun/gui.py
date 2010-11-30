@@ -6,6 +6,7 @@ import sys
 import copy
 import math
 import logging
+import tempfile
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButtonBox, \
@@ -1045,6 +1046,7 @@ class MainWindow(QMainWindow):
         # Main attributes
         self.basedir = florun.base_dir
         self.asked = False
+        self.tmpfile = None
         self.flow = None
         self.buildActions()
         self.buildWidgets()
@@ -1453,19 +1455,21 @@ class MainWindow(QMainWindow):
         # Update save buttons
         self.updateSavedState()
 
-    def saveFlow(self):
+    def saveFlow(self, flow=None):
         """
         Save a flow to a file
         """
+        if not flow:
+            flow = self.flow
         # Ask the user if never saved
-        if self.flow.filename is None:
+        if flow.filename is None:
             ask = QFileDialog.getSaveFileName(self, self.tr('Save file'), self.basedir)
             ask = unicode(ask) # convert QString
             if ask == '': # User clicked cancel
                 return False
-            self.flow.filename = ask
-        logger.debug(u"Save file '%s'..." % self.flow.filename)
-        self.flow.save()
+            flow.filename = ask
+        logger.debug(u"Save file '%s'..." % flow.filename)
+        flow.save()
         self.updateSavedState()
         return True
 
@@ -1473,27 +1477,34 @@ class MainWindow(QMainWindow):
         """
         Run current flow
         """
-        if self.flow.modified and not self.asked:
-            answer = MainWindow.messageCancelYesNo(self.tr(u"Save flow ?"),
+        flow = self.flow
+        if flow.modified and not self.asked:
+            answer = MainWindow.messageCancelYesNo(self.tr(u"Save flow before execution ?"),
                                                    self.tr(u"The flow has been modified."),
                                                    self.tr("Do you want to save your changes?"))
             if answer == QMessageBox.Yes:
-                self.saveFlow()
+                self.saveFlow(flow)
             elif answer == QMessageBox.Cancel:
                 logger.debug(self.tr("Flow start canceled by user."))
                 return
             else:
-                self.asked = True
+                self.asked = True  # Only ask once.
+        # If no explicit save, use temp file
+        self.tmpfile = tempfile.NamedTemporaryFile('w')
+        if self.asked:
+            flow = flow.clone()
+            flow.filename = self.tmpfile.name
+            flow.save()
 
         # Switch to console tab
         self.maintabs.setCurrentIndex(1)
 
-        if len(self.flow.nodes) == 0:
-            return
+        if len(flow.nodes) == 0:
+            return  # why ?
 
         # Ask for args if any
         userargs = {}
-        cliargs  = [n.name.value for n in self.flow.CLIParameterNodes() \
+        cliargs  = [n.name.value for n in flow.CLIParameterNodes() \
                                     if  len(n.name.predecessors) == 0 \
                                     and n.name.value is not None]
         if len(cliargs) > 0:
@@ -1501,6 +1512,7 @@ class MainWindow(QMainWindow):
             answer, userargs = self.FlowCLIArguments(cliargs)
             if answer == QDialog.Rejected:
                 logger.debug(self.tr("Flow start canceled by user."))
+                self.tmpfile.close()  # Delete temp file since unnecessary
                 return
 
         self.setStatusMessage(self.tr("Flow is now running."), 0)  # no timeout
@@ -1520,7 +1532,7 @@ class MainWindow(QMainWindow):
         self.connect(self.process, SIGNAL("finished(int, QProcess::ExitStatus)"),  self.onFinishedFlow)
 
         # Run command
-        cmd = florun.build_exec_cmd(self.flow, self.console.loglevel, userargs)
+        cmd = florun.build_exec_cmd(flow, self.console.loglevel, userargs)
         logger.debug(self.tr("Start command '%1'").arg(cmd))
         self.process.start(cmd)
         # check if command-line error...
@@ -1545,6 +1557,7 @@ class MainWindow(QMainWindow):
             msg = self.tr("Flow execution interrupted by user.")
         logger.debug(msg)
         self.setStatusMessage(msg)
+        self.tmpfile.close()  # Delete flow temp file
         # Reinitialize GUI
         self.console.detachProcess()
         self.process = None

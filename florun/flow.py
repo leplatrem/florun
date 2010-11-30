@@ -44,6 +44,9 @@ class Flow(object):
         self.filename = None
         self._nodes = []
 
+    def clone(self):
+        return copy.copy(self)
+
     @property
     def nodes(self):
         return self._nodes
@@ -503,7 +506,6 @@ class Node (object):
         """
         This method keeps track of nodes interfaces that are ready to be loaded.
         When all are ready, execution starts.
-
         @type interface : L{Interface}
         """
         self.__readyinterfaces[interface] = True
