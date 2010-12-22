@@ -233,6 +233,7 @@ class DiagramItem(QGraphicsItemGroup):
         #self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
         #self.setHandlesChildEvents(True)
         self.text = None
         # Underlying object
