@@ -234,7 +234,7 @@ class DiagramItem(QGraphicsItemGroup):
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
-        #self.setHandlesChildEvents(True)
+        self._shapes = None
         self.text = None
         # Underlying object
         self._node = None
@@ -242,6 +242,7 @@ class DiagramItem(QGraphicsItemGroup):
         #: cf DiagramItem::showSlot() and DiagramScene::itemSelected()
         self.hackselected = False
         self.buildItem()
+        
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -273,6 +274,19 @@ class DiagramItem(QGraphicsItemGroup):
         self.text.setFont(f)
         self.text.setZValue(1000)
         self.addToGroup(self.text)
+        for s in self.shapes.values():
+            self.addToGroup(s)
+        self.update()
+
+    @property
+    def shapes(self):
+        if not self._shapes:
+            self._shapes = {}
+            for elt in ['default', 'start']:
+                s = QGraphicsSvgItem(self.SVGShape())
+                s.setElementId(QString(elt))
+                self._shapes[elt] = s
+        return self._shapes
 
     def SVGShape(self):
         path = os.path.join(florun.icons_dir, self.SVG_SHAPE)
@@ -403,24 +417,9 @@ class DiagramItem(QGraphicsItemGroup):
 class DiagramItemProcess(DiagramItem):
     SVG_SHAPE = "item-process.svg"
 
-    def __init__(self, *args):
-        DiagramItem.__init__(self, *args)
-
-    def buildItem(self):
-        DiagramItem.buildItem(self)
-        frame = QGraphicsSvgItem(self.SVGShape())
-        self.addToGroup(frame)
-        self.update()
-
 
 class DiagramItemInput(DiagramItem):
     SVG_SHAPE = "item-input.svg"
-
-    def buildItem(self):
-        DiagramItem.buildItem(self)
-        frame = QGraphicsSvgItem(self.SVGShape())
-        self.addToGroup(frame)
-        self.update()
 
     def boundingOffsets(self):
         return (0, -10, 0, 10)
@@ -428,12 +427,6 @@ class DiagramItemInput(DiagramItem):
 
 class DiagramItemOutput(DiagramItem):
     SVG_SHAPE = "item-output.svg"
-
-    def buildItem(self):
-        DiagramItem.buildItem(self)
-        frame = QGraphicsSvgItem(self.SVGShape())
-        self.addToGroup(frame)
-        self.update()
 
     def boundingOffsets(self):
         return (0, -10, 0, 10)
