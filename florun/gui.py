@@ -233,7 +233,7 @@ class DiagramItem(QGraphicsItemGroup):
         #self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
+        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
         self._shapes = None
         self.text = None
         # Underlying object
@@ -242,7 +242,6 @@ class DiagramItem(QGraphicsItemGroup):
         #: cf DiagramItem::showSlot() and DiagramScene::itemSelected()
         self.hackselected = False
         self.buildItem()
-        
 
     def __unicode__(self):
         return u"%s" % self.text.toPlainText()
@@ -307,6 +306,9 @@ class DiagramItem(QGraphicsItemGroup):
             self.text.setTextWidth(itemrect.width())
         # Show slots
         self.showSlots()
+
+    def setStartNode(self, state):
+        self.shapes['start'].setVisible(state)
 
     def itemChange(self, change, value):
         r = QGraphicsItemGroup.itemChange(self, change, value)
@@ -545,12 +547,22 @@ class DiagramScene(QGraphicsScene):
             logger.debug((self.tr(u"Connector removed : %1").arg(u'%s'%connector)))
             QObject.emit(self, SIGNAL("connectorRemoved"), connector)
 
+    @property
+    def diagramitems(self):
+        return [i for i in self.items() if issubclass(i.__class__, DiagramItem)]
+
     def findDiagramItemByNode(self, node):
-        for i in self.items():
-            if issubclass(i.__class__, DiagramItem):
-                if i.node == node:
-                    return i
+        for i in self.diagramitems:
+            if i.node == node:
+                return i
         raise Exception("%s : %s" % (self.tr(u"DiagramItem not found with node"), node))
+
+    def setStartNodes(self, nodes):
+        for i in self.diagramitems:
+            i.setStartNode(False)
+        for n in nodes:
+            i = self.findDiagramItemByNode(n)
+            i.setStartNode(True)
 
     def mousePressEvent(self, mouseEvent):
         if self.slot is not None:
@@ -1343,6 +1355,8 @@ class MainWindow(QMainWindow):
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.addConnector(start, end)
+        # Update start nodes states
+        self.scene.setStartNodes(self.flow.startNodes)
         self.updateSavedState()
 
     def connectorRemoved(self, connector):
@@ -1352,6 +1366,8 @@ class MainWindow(QMainWindow):
         start = connector.startItem.interface
         end = connector.endItem.interface
         self.flow.removeConnector(start, end)
+        # Update start nodes states
+        self.scene.setStartNodes(self.flow.startNodes)
         self.updateSavedState()
 
     """
