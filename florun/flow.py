@@ -22,10 +22,10 @@ logger = logging.getLogger(__name__)
 class FlowError(Exception):
     pass
 
-class FlowParsingError(FlowError)
+class FlowParsingError(FlowError):
     pass
 
-class NodeNotFoundError(FlowError)
+class NodeNotFoundError(FlowError):
     pass
 
 

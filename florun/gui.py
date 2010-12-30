@@ -2,6 +2,8 @@
 # -*- coding: utf8 -*-
 
 import os
+import errno
+import exceptions
 import sys
 import copy
 import math
@@ -1289,6 +1291,9 @@ class MainWindow(QMainWindow):
 
         logger.debug(errmsg + "\n" + tbinfo)
 
+        if excType is exceptions.KeyboardInterrupt:
+            sys.exit(errno.EINTR)
+
         errorbox = QMessageBox()
         errorbox.setWindowTitle(_(u"Internal Error"))
         errorbox.setIcon(QMessageBox.Critical)
@@ -1500,6 +1505,9 @@ class MainWindow(QMainWindow):
         return True
 
     def exportFlow(self):
+        """
+        Export the flow to an image
+        """
         PADDING = 15
         # Ask filename to user
         filename = QFileDialog.getSaveFileName(self, self.tr('Export image'), self.basedir)
