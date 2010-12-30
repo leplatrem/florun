@@ -16,7 +16,8 @@ from PyQt4.QtGui  import QDesktopWidget, QApplication, QMainWindow, QDialogButto
                          QGridLayout, QVBoxLayout, QHBoxLayout, QFormLayout, \
                          QGraphicsScene, QGraphicsView, QGraphicsItem, QTransform, \
                          QGraphicsItemGroup, QGraphicsEllipseItem, QGraphicsTextItem, QGraphicsLineItem, \
-                         QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor, QPolygonF, QGraphicsPolygonItem
+                         QDrag, QPainter, QColor, QFont, QPen, QPixmap, QCursor, QPolygonF, QGraphicsPolygonItem, \
+                         QImage, qRgba
 from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
@@ -1114,10 +1115,12 @@ class MainWindow(QMainWindow):
 
         QObject.connect(self.parameters, SIGNAL("diagramItemChanged"), self.diagramItemChanged)
 
+    @property
+    def filename(self):
+        return self.flow.filename or self.tr(u"Untitled")
+
     def updateTitle(self):
-        filename = self.flow.filename
-        if filename is None:
-            filename = self.tr(u"Untitled")
+        filename = self.filename
         if self.flow.modified:
             filename = "*"+filename
         self.setWindowTitle("%s - %s" % (filename, self.apptitle))
@@ -1182,6 +1185,11 @@ class MainWindow(QMainWindow):
         self.save.setStatusTip(self.tr('Save flow'))
         self.connect(self.save, SIGNAL('triggered()'), self.saveFlow)
 
+        self.export = QAction(self.loadIcon('image-x-generic'), self.tr('Export'), self)
+        self.export.setShortcut('Ctrl+Shift+S')
+        self.export.setStatusTip(self.tr('Export flow to image'))
+        self.connect(self.export, SIGNAL('triggered()'), self.exportFlow)
+
         self.exit = QAction(self.loadIcon('application-exit'), self.tr('Exit'), self)
         self.exit.setShortcut('Ctrl+Q')
         self.exit.setStatusTip(self.tr('Exit application'))
@@ -1225,6 +1233,7 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.new)
         toolbar.addAction(self.open)
         toolbar.addAction(self.save)
+        toolbar.addAction(self.export)
 
         toolbar.addSeparator()
         toolbar.addAction(self.start)
@@ -1485,6 +1494,32 @@ class MainWindow(QMainWindow):
         flow.save()
         self.updateSavedState()
         return True
+
+    def exportFlow(self):
+        PADDING = 15
+        # Ask filename to user
+        filename = QFileDialog.getSaveFileName(self, self.tr('Export image'), self.basedir)
+        filename = unicode(filename) # convert QString
+        if not filename:  # User clicked cancel
+            return False
+        logger.debug(u"Export flow to image '%s'..." % filename)
+        # Compute scene rect
+        sourceRect = self.scene.itemsBoundingRect()
+        sourceRect.adjust(-PADDING, -PADDING, PADDING, PADDING)
+        targetRect = QRectF(QPointF(), sourceRect.size())
+        # Initialize painting
+        image = QImage(targetRect.size().toSize(), QImage.Format_ARGB32_Premultiplied)
+        image.fill(qRgba(0, 0, 0, 0))  # fill whole image + padding
+        painter = QPainter(image)
+        painter.initFrom(self.view)
+        painter.setBackgroundMode(Qt.TransparentMode)
+        # Draw scene content
+        self.scene.clearSelection()
+        self.scene.render(painter, target=targetRect, source=QRectF(sourceRect.toRect()))
+        # Draw flow filename in upper left corner
+        painter.drawText(QRectF(1, 1, targetRect.size().width(), PADDING), self.filename)
+        image.save(filename)
+        painter.end()
 
     def startFlow(self):
         """
