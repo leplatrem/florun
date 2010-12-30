@@ -447,9 +447,12 @@ class DiagramScene(QGraphicsScene):
     The {DiagramScene} contains all methods to add and remove graphical items.
     Events of user actions are emitted here.
     """
-
-    def __init__(self, *args):
-        QGraphicsScene.__init__(self, *args)
+    
+    DEFAULT_SIZE = QSizeF(700, 500)
+    
+    def __init__(self, *args, **kwargs):
+        super(DiagramScene, self).__init__(*args, **kwargs)
+        self.setSceneRect(QRectF(QPointF(), self.DEFAULT_SIZE))
         QObject.connect(self, SIGNAL("slotEnterEvent"), self.slotEnterEvent)
         QObject.connect(self, SIGNAL("slotLeaveEvent"), self.slotLeaveEvent)
         QObject.connect(self, SIGNAL("connectorEnterEvent"), self.connectorEnterEvent)
@@ -512,7 +515,8 @@ class DiagramScene(QGraphicsScene):
     def addDiagramItem(self, pos, node, emit=True):
         item = DiagramItem.factory(node.__class__)
         item.node = node
-        item.setPos(pos)
+        middle = pos - item.sceneBoundingRect().center()
+        item.setPos(middle)
         self.addItem(item)
         item.update()
         if emit:
