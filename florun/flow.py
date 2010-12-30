@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 class FlowError(Exception):
     pass
 
+class FlowParsingError(FlowError)
+    pass
+
+class NodeNotFoundError(FlowError)
+    pass
+
 
 class IncompatibilityError(FlowError):
     """
@@ -74,7 +80,7 @@ class Flow(object):
         """
         self.modified = True
         if end in start.successors or start in end.successors:
-            raise Exception(_("Connector already exists from %s to %s") % (start, end))
+            raise FlowError(_("Connector already exists from %s to %s") % (start, end))
         start.addSuccessor(end)
 
     def addNode(self, node):
@@ -126,7 +132,7 @@ class Flow(object):
         for n in self.nodes:
             if n.id == nodeid:
                 return n
-        raise Exception(_("Node with id '%s' not found.") % nodeid)
+        raise NodeNotFoundError(_("Node with id '%s' not found.") % nodeid)
 
     @staticmethod
     def load(filename):
@@ -190,7 +196,7 @@ class Flow(object):
             try:
                 classobj = eval(classname)
             except:
-                raise Exception(_(u"Unknown node type '%s'") % classname)
+                raise FlowParsingError(_(u"Unknown node type '%s'") % classname)
 
             node = classobj(flow=flow, id=nodeid)
 
@@ -341,7 +347,7 @@ class Interface(object):
         @type other : {Interface}
         """
         if other not in self.successors and other not in self.predecessors:
-            raise Exception(_("Should not load interface that is not connected."))
+            raise FlowError(_("Should not load interface that is not connected."))
 
     def clean(self):
         """
@@ -385,7 +391,7 @@ class Interface(object):
         return u"%s::%s" % (self.node, self.fullname)
 
 
-class Node (object):
+class Node(object):
     """
     A {Node} is a step in the flow.
     It runs operations, using Parameter {Interface}s, giving Result, reading
@@ -500,7 +506,7 @@ class Node (object):
         for i in self.interfaces:
             if i.name == name:
                 return i
-        raise Exception(_("Interface with name '%s' not found on node %s.") % (name, self))
+        raise FlowError(_("Interface with name '%s' not found on node %s.") % (name, self))
 
     def onInterfaceReady(self, interface):
         """
@@ -518,7 +524,7 @@ class Node (object):
         """
         This method is overriden by {Node} subclasses.
         """
-        pass
+        raise NotImplementedError
 
     def start(self):
         """
@@ -551,7 +557,7 @@ class Node (object):
         return repr(self)
 
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, self.id)
+        return "%s(%s)" % (self.classname, self.id)
 
     def __unicode__(self):
         return repr(self)
@@ -664,7 +670,7 @@ class InterfaceList(Interface):
         self.items = copy.copy(other.items)
 
 
-class ProcessNode (Node):
+class ProcessNode(Node):
     category = _(u"Basic")
     label    = _(u"Process")
     description = _(u"Execute a shell command")
@@ -687,12 +693,12 @@ class ProcessNode (Node):
         self.result.value = proc.returncode
 
 
-class InputNode (Node):
+class InputNode(Node):
     category = _(u"Input")
     label    = _(u"")
 
 
-class FileInputNode (InputNode):
+class FileInputNode(InputNode):
     label       = _(u"File")
     description = _(u"Read the content of a file")
 
@@ -713,7 +719,7 @@ class FileInputNode (InputNode):
         f.close()
 
 
-class ValueInputNode (InputNode):
+class ValueInputNode(InputNode):
     label       = _(u"Value")
     description = _(u"A string or number")
 
@@ -726,8 +732,8 @@ class ValueInputNode (InputNode):
         self.output.value = self.input.value
 
 
-class CommandLineParameterInputNode (InputNode):
-    label    = _(u"CLI Param")
+class CommandLineParameterInputNode(InputNode):
+    label       = _(u"CLI Param")
     description = _(u"Read a Command-Line Interface parameter")
 
     def __init__(self, **kwargs):
@@ -752,11 +758,11 @@ class CommandLineParameterInputNode (InputNode):
     def paramname(self):
         name = self.name.value
         if empty(name):
-            raise Exception(_("Error in getting name of CLI Parameter"))
+            raise FlowError(_("Error in getting name of CLI Parameter"))
         return name
 
 
-class CommandLineStdinInputNode (InputNode):
+class CommandLineStdinInputNode(InputNode):
     label    = _(u"CLI Stdin")
     description = _(u"Read the Command-Line Interface standard input")
 
@@ -770,7 +776,7 @@ class CommandLineStdinInputNode (InputNode):
         self.output.flush()
 
 
-class FileListInputNode (InputNode):
+class FileListInputNode(InputNode):
     label    = _(u"File list")
     description = _(u"List files of a folder")
 
