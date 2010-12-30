@@ -266,6 +266,13 @@ class DiagramItem(QGraphicsItemGroup):
                 return diagramitem
         raise Exception(_("Unknown node type '%s'") % classobj.__name__)
 
+    @classmethod
+    def SVGShape(cls):
+        path = os.path.join(florun.icons_dir, cls.SVG_SHAPE)
+        if not os.path.exists(path):
+            logger.warning("SVG missing '%s'" % path)
+        return path
+
     def buildItem(self):
         self.text = QGraphicsTextItem()
         f = QFont()
@@ -286,12 +293,6 @@ class DiagramItem(QGraphicsItemGroup):
                 s.setElementId(QString(elt))
                 self._shapes[elt] = s
         return self._shapes
-
-    def SVGShape(self):
-        path = os.path.join(florun.icons_dir, self.SVG_SHAPE)
-        if not os.path.exists(path):
-            logger.warning("SVG missing '%s'" % path)
-        return path
 
     def update(self):
         # Update id
@@ -931,9 +932,11 @@ class ParametersEditor(QWidget):
                 # Connect checkbox event
                 QObject.connect(w.checkbox, SIGNAL("stateChanged(int)"), self.showSlot)
                 QObject.connect(w.edit,     SIGNAL("textChanged(QString)"), self.entriesChanged)
+                QObject.connect(w.edit,     SIGNAL("returnPressed()"), self.save)
                 # Keep track of associations for saving
                 self.extrafields[interface.name] = w
         QObject.connect(self.nodeId, SIGNAL("textChanged(QString)"), self.entriesChanged)
+        QObject.connect(self.nodeId, SIGNAL("returnPressed()"), self.save)
         self.enable()
 
     def save(self):
