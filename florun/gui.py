@@ -1066,8 +1066,8 @@ class MainWindow(QMainWindow):
         self.flow = None
         self.buildActions()
         self.buildWidgets()
-        # Center of the screen
-        self.center()
+        # Load preferences
+        self.loadPreferences()
         # Init
         if filename is not None:
             self.loadFlow(filename)
@@ -1120,6 +1120,22 @@ class MainWindow(QMainWindow):
         QObject.connect(self.scene, SIGNAL("diagramItemMoved"),    self.diagramItemMoved)
 
         QObject.connect(self.parameters, SIGNAL("diagramItemChanged"), self.diagramItemChanged)
+
+    def loadPreferences(self):
+        # Center of the screen by default
+        self.setGeometry(100, 100, 800, 500)
+        self.center()
+        # Reload settings if exist
+        settings = QSettings(florun.__title__)
+        self.restoreGeometry(settings.value("mainwindow/geometry").toByteArray())
+        self.restoreState(settings.value("mainwindow/windowState").toByteArray())
+
+    def savePreferences(self):
+        settings = QSettings(florun.__title__)
+        settings.beginGroup("mainwindow")
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("windowState", self.saveState())
+        settings.endGroup()
 
     @property
     def filename(self):
@@ -1413,6 +1429,8 @@ class MainWindow(QMainWindow):
             if answer == QMessageBox.Cancel:
                 event.ignore() # Don't close
                 return
+        # Really quit
+        self.savePreferences()
         event.accept()
 
     def newFlow(self):
@@ -1640,7 +1658,6 @@ def main(args, filename=None):
         logger.warning("Could not install translator for locale '%s'" % locale)
     # Build window
     mainWindow = MainWindow(filename)
-    mainWindow.setGeometry(100, 100, 800, 500)
     mainWindow.show()
     # Replace system exception hook with GUI
     sys.excepthook = mainWindow.messageException
