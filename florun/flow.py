@@ -88,6 +88,7 @@ class Flow(object):
         @param node : L{Node}
         """
         self.modified = True
+        node.flow = self
         self.nodes.append(node)
 
     def removeConnector(self, start, end):
@@ -109,6 +110,7 @@ class Flow(object):
                 self.removeConnector(interface, relative)
             for relative in interface.predecessors:
                 self.removeConnector(relative, interface)
+        node.flow = None
         # Remove the node itself
         self.nodes.remove(node)
 
