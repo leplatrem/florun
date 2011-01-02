@@ -35,7 +35,7 @@ class IncompatibilityError(FlowError):
     """
 
     def __init__(self, interface1, interface2):
-        super(self, FlowError).__init__(self, _("%s incompatible with %s") % (interface1.classname, interface2.classname))
+        super(FlowError, self).__init__(_("%s incompatible with %s") % (interface1.classname, interface2.classname))
         self.interface1 = interface1
         self.interface2 = interface2
 
@@ -87,6 +87,14 @@ class Flow(object):
         """
         @param node : L{Node}
         """
+        try:
+            n = self.findNode(node.id)
+            if node.id:
+                raise FlowError(_("A node with id '%s' already exists.") % node.id)
+            else:
+                node.id = self.randomId(node)
+        except NodeNotFoundError, e:
+            pass
         self.modified = True
         node.flow = self
         self.nodes.append(node)
@@ -97,7 +105,10 @@ class Flow(object):
         @type end   : {Interface}
         """
         self.modified = True
-        start.removeSuccessor(end)
+        try:
+            start.removeSuccessor(end)
+        except ValueError:
+            raise FlowError(_("Connector does not exist from %s to %s") % (start, end))
 
     def removeNode(self, node):
         """
@@ -112,7 +123,10 @@ class Flow(object):
                 self.removeConnector(relative, interface)
         node.flow = None
         # Remove the node itself
-        self.nodes.remove(node)
+        try:
+            self.nodes.remove(node)
+        except ValueError:
+            raise FlowError(_("Node not found in flow."))
 
     def randomId(self, node):
         """
@@ -170,7 +184,6 @@ class Flow(object):
         depending on its position within the flow.
         Sort nodes on this index.
         """
-
         def setincidence(nodelist, level):
             for n in nodelist:
                 n.incidence = level
@@ -178,7 +191,7 @@ class Flow(object):
                     setincidence(n.successors, level + 1)
         setincidence(self.startNodes, 1)
         self.nodes.sort(cmp=lambda x, y: cmp(x.id, y.id))
-        self.nodes.sort(cmp=lambda x, y: x.incidence - y.incidence)
+        self.nodes.sort(cmp=lambda x, y: cmp(x.incidence, y.incidence))
 
     @classmethod
     def importXml(cls, xmlcontent):
@@ -403,10 +416,10 @@ class Node(object):
     label       = _(u"")
     description = _(u"")
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.flow = kwargs.get('flow', None)
         self.id = kwargs.get('id', '')
-        if self.id == '' and self.flow is not None:
+        if not self.id and self.flow:
             self.id = self.flow.randomId(self)
         self._interfaces = []
         self.incidence   = 0
@@ -677,8 +690,8 @@ class ProcessNode(Node):
     label    = _(u"Process")
     description = _(u"Execute a shell command")
 
-    def __init__(self, **kwargs):
-        Node.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        Node.__init__(self, *args, **kwargs)
         self.stdin   = InterfaceStream(self, 'stdin',  default='EOF', type=Interface.INPUT,  doc="standard input")
         self.stdout  = InterfaceStream(self, 'stdout', default='EOF', type=Interface.OUTPUT, doc="standard output")
         self.stderr  = InterfaceStream(self, 'stderr', default='EOF', type=Interface.OUTPUT, doc="standard error output")
@@ -704,8 +717,8 @@ class FileInputNode(InputNode):
     label       = _(u"File")
     description = _(u"Read the content of a file")
 
-    def __init__(self, **kwargs):
-        InputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        InputNode.__init__(self, *args, **kwargs)
         self.filepath = InterfaceValue(self,  'filepath', default='',    type=Interface.PARAMETER, slot=False, doc="file to read")
         self.output   = InterfaceStream(self, 'output',   default='EOF', type=Interface.OUTPUT,    doc="file content")
 
@@ -725,8 +738,8 @@ class ValueInputNode(InputNode):
     label       = _(u"Value")
     description = _(u"A string or number")
 
-    def __init__(self, **kwargs):
-        InputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        InputNode.__init__(self, *args, **kwargs)
         self.input  = InterfaceValue(self, 'value', default='', type=Interface.PARAMETER, slot=False, doc="Manual value")
         self.output = InterfaceValue(self, 'out', default='',   type=Interface.OUTPUT, doc="value")
 
@@ -738,8 +751,8 @@ class CommandLineParameterInputNode(InputNode):
     label       = _(u"CLI Param")
     description = _(u"Read a Command-Line Interface parameter")
 
-    def __init__(self, **kwargs):
-        InputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        InputNode.__init__(self, *args, **kwargs)
         self.name    = InterfaceValue(self, 'name',    default='', type=Interface.PARAMETER, slot=False, doc=_("Command line interface parameter name"))
         self.value   = InterfaceValue(self, 'value',   default='', type=Interface.OUTPUT,    doc=_("value retrieved"))
         self.default = InterfaceValue(self, 'default', default='', type=Interface.PARAMETER, slot=False, doc=_("default value if not specified at runtime"))
@@ -768,8 +781,8 @@ class CommandLineStdinInputNode(InputNode):
     label    = _(u"CLI Stdin")
     description = _(u"Read the Command-Line Interface standard input")
 
-    def __init__(self, **kwargs):
-        InputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        InputNode.__init__(self, *args, **kwargs)
         self.output   = InterfaceStream(self, 'output', default='EOF', type=Interface.OUTPUT, doc="standard input content")
 
     def run(self):
@@ -782,8 +795,8 @@ class FileListInputNode(InputNode):
     label    = _(u"File list")
     description = _(u"List files of a folder")
 
-    def __init__(self, **kwargs):
-        InputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        InputNode.__init__(self, *args, **kwargs)
         self.folder   = InterfaceValue(self, 'folder',   default='', type=Interface.PARAMETER, slot=False, doc="folder to scan")
         self.filelist = InterfaceList(self,  'filelist', default='', type=Interface.OUTPUT,    doc="list of file paths")
 
@@ -819,8 +832,8 @@ class FileOutputNode(OutputNode):
     label    = _(u"File")
     description = _(u"Write the content to a file")
 
-    def __init__(self, **kwargs):
-        OutputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        OutputNode.__init__(self, *args, **kwargs)
         self.filepath = InterfaceValue(self, 'filepath', default='',  type=Interface.PARAMETER, slot=False, doc="file to write")
         self.input    = InterfaceStream(self, 'input', default='EOF', type=Interface.INPUT, doc="input to write")
 
@@ -836,8 +849,8 @@ class CommandLineStdoutOutputNode(OutputNode):
     label       = _(u"CLI Stdout")
     description = _(u"Write to the Command-Line Interface standard output")
 
-    def __init__(self, **kwargs):
-        OutputNode.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        OutputNode.__init__(self, *args, **kwargs)
         self.outstream = sys.stdout
         self.input     = InterfaceStream(self, 'input', default='EOF', type=Interface.INPUT, doc="standard output")
 
