@@ -105,10 +105,7 @@ class Flow(object):
         @type end   : {Interface}
         """
         self.modified = True
-        try:
-            start.removeSuccessor(end)
-        except ValueError:
-            raise FlowError(_("Connector does not exist from %s to %s") % (start, end))
+        start.removeSuccessor(end)
 
     def removeNode(self, node):
         """
@@ -353,8 +350,11 @@ class Interface(object):
         """
         @type interface : L{Interface}
         """
-        self.successors.remove(interface)
-        interface.predecessors.remove(self)
+        try:
+            self.successors.remove(interface)
+            interface.predecessors.remove(self)
+        except ValueError:
+            raise FlowError(_("Connector does not exist from %s to %s") % (self, interface))
 
     def load(self, other):
         """
@@ -363,6 +363,7 @@ class Interface(object):
         """
         if other not in self.successors and other not in self.predecessors:
             raise FlowError(_("Should not load interface that is not connected."))
+        # Did nothing.
 
     def clean(self):
         """
@@ -585,6 +586,9 @@ class Node(object):
 
     def error(self, msg):
         logger.error(self._logstr(msg))
+
+    def exception(self, e):
+        logger.exception(self._logstr(e))
 
     def warning(self, msg):
         logger.warning(self._logstr(msg))

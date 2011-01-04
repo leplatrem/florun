@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
-
 import unittest
+import logging
+import tempfile
 
-from flow import Flow, Node, Interface, FlowError, NodeNotFoundError
+from flow import Flow, Node, Interface, FlowError, NodeNotFoundError, \
+                 Runner, FileInputNode, FileOutputNode
 
 
 class INode(Node):
@@ -72,30 +74,26 @@ class TestFlow(unittest.TestCase):
         self.assertEqual('foo-4', self.flow.randomId(FooNode()))
 
     def test_addConnector(self):
-        i1 = self.n2.findInterface('i1')
-        i2 = self.n1.findInterface('i2')
-        self.f1.addConnector(i2, i1)
+        self.f1.addConnector(self.n1.i2, self.n2.i1)
         self.assertEqual(1, len(self.n1.successors))
         self.assertEqual(0, len(self.n2.successors))
         self.assertEqual(0, len(self.n1.predecessors))
         self.assertEqual(1, len(self.n2.predecessors))
         self.assertTrue(self.n1 in self.f1.startNodes)
         self.assertFalse(self.n2 in self.f1.startNodes)
-        self.assertRaises(FlowError, self.f1.addConnector, i1, i2)
+        self.assertRaises(FlowError, self.f1.addConnector, self.n2.i1, self.n1.i2)
 
     def test_removeConnector(self):
-        i1 = self.n1.findInterface('i1')
-        i2 = self.n2.findInterface('i2')
-        self.f1.addConnector(i2, i1)
-        self.assertRaises(FlowError, self.f1.removeConnector, i1, i2)
-        self.flow.removeConnector(i2, i1)
+        self.f1.addConnector(self.n2.i2, self.n1.i1)
+        self.assertRaises(FlowError, self.f1.removeConnector, self.n1.i1, self.n2.i2)
+        self.flow.removeConnector(self.n2.i2, self.n1.i1)
         self.assertTrue(self.n1 in self.f1.startNodes)
         self.assertTrue(self.n2 in self.f1.startNodes)
         self.assertEqual(0, len(self.n1.successors))
         self.assertEqual(0, len(self.n2.successors))
         self.assertEqual(0, len(self.n1.predecessors))
         self.assertEqual(0, len(self.n2.predecessors))
-        self.assertRaises(FlowError, self.f1.removeConnector, i2, i1)
+        self.assertRaises(FlowError, self.f1.removeConnector, self.n2.i2, self.n1.i1)
 
 
 class TestInterface(unittest.TestCase):
@@ -106,15 +104,14 @@ class TestInterface(unittest.TestCase):
         self.f1 = Flow()
         self.f1.addNode(self.n1)
         self.f1.addNode(self.n2)
-        self.i1 = self.n2.findInterface('i1')
-        self.i2 = self.n1.findInterface('i2')
-        self.i3 = self.n2.findInterface('i3')
-        self.i4 = self.n1.findInterface('i4')
+        self.i1 = self.n2.i1
+        self.i2 = self.n1.i2
+        self.i3 = self.n2.i3
+        self.i4 = self.n1.i4
 
     def test_repr(self):
         n = INode(id='foo')
-        i = n.findInterface('i1')
-        self.assertEqual("INode(foo)::Interface(i1)", unicode(i))
+        self.assertEqual("INode(foo)::Interface(i1)", unicode(n.i1))
 
     def test_isInput(self):
         self.assertTrue(self.i1.isInput())
@@ -168,11 +165,62 @@ class TestNode(unittest.TestCase):
         self.f1.addNode(self.n1)
 
     def test_findInterface(self):
-        self.assertTrue(self.n1.findInterface('i1'))
+        self.assertEqual(self.n1.i1, self.n1.findInterface('i1'))
         self.assertRaises(FlowError, self.n1.findInterface, 'foo')
 
     def test_applyAttributes(self):
-        pass
+        self.assertEqual(self.n1.id, '')
+        self.n1.applyAttributes({'id': ('foo', None)})
+        self.assertEqual(self.n1.id, 'foo')
+        
+        self.assertEqual(self.n1.i1.value, None)
+        self.assertEqual(self.n1.i1.slot, True)
+        self.assertEqual(self.n1.i3.value, None)
+        self.assertEqual(self.n1.i3.slot, True)
+        self.n1.applyAttributes({'i1': ('bar', False), 
+                                 'i3': ('foo', True)})
+        self.assertEqual(self.n1.i1.value, 'bar')
+        self.assertEqual(self.n1.i1.slot, False)
+        self.assertEqual(self.n1.i3.value, 'foo')
+        self.assertEqual(self.n1.i3.slot, True)
+        self.assertEqual(self.n1.i2.value, None)
+        self.assertEqual(self.n1.i4.value, None)
+
+    def test_interfaces(self):
+        self.assertEqual(4, len(self.n1.interfaces))
+        self.assertTrue(all([i in self.n1.inputInterfaces for i in [self.n1.i1, self.n1.i3]]))
+        self.assertTrue(all([i in self.n1.outputInterfaces for i in [self.n1.i2, self.n1.i4]]))
+        self.assertTrue(self.n1.i1 in self.n1.inputSlotInterfaces)
+        self.n1.i3.slot = False
+        self.assertFalse(self.n1.i3 in self.n1.inputSlotInterfaces)
+
+
+class TestRunner(unittest.TestCase):
+    
+    def test_very_simple_flow(self):
+        logging.basicConfig()
+        
+        self.flow = Flow()
+        
+        self.input = FileInputNode(id='input')
+        self.input.filepath.value = __file__
+        
+        tmp = tempfile.NamedTemporaryFile()
+        self.output = FileOutputNode(id='output')
+        self.output.filepath.value = tmp.name
+        
+        self.flow.addNode(self.input)
+        self.flow.addNode(self.output)
+        self.flow.addConnector(self.input.output, self.output.input)
+        
+        r = Runner(self.flow)
+        r.start()
+        
+        lines = tmp.readlines()
+        self.assertTrue(lines)
+        self.assertEqual("#!/usr/bin/python\n", lines[0])
+        self.assertEqual("    unittest.main()\n", lines[-1])
+        tmp.close()
 
 
 if __name__ == '__main__':
