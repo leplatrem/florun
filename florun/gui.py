@@ -235,6 +235,8 @@ class DiagramItem(QGraphicsItemGroup):
     """
     SVG_SHAPE = ''
 
+    mappings = {}
+    
     def __init__(self, *args):
         QGraphicsItemGroup.__init__(self, *args)
         #self.setAcceptHoverEvents(True)
@@ -264,19 +266,29 @@ class DiagramItem(QGraphicsItemGroup):
         self.showSlots()
 
     @staticmethod
+    def register(nodeclass, diagramitemclass):
+        DiagramItem.mappings[nodeclass] = diagramitemclass
+
+    @staticmethod
     def factory(classobj):
-        mappings = {ProcessNode : DiagramItemProcess(),
-                    InputNode   : DiagramItemInput(),
-                    OutputNode  : DiagramItemOutput()}
-        for mainclass, diagramitem in mappings.items():
+        # Find direct match first
+        for mainclass, diagramitemcls in DiagramItem.mappings.items():
+            if classobj == mainclass:
+                return diagramitemcls()
+        # Find by inheritance
+        for mainclass, diagramitemcls in DiagramItem.mappings.items():
             if issubclass(classobj, mainclass):
-                return diagramitem
+                return diagramitemcls()
         raise Exception(_("Unknown node type '%s'") % classobj.__name__)
 
     @classmethod
     def SVGShape(cls):
         path = os.path.join(florun.icons_dir, cls.SVG_SHAPE)
         if not os.path.exists(path):
+            for plugindir in florun.plugins_dirs.split(os.pathsep):
+                path = os.path.join(plugindir, cls.SVG_SHAPE)
+                if os.path.exists(path):
+                    return path 
             logger.warning("SVG missing '%s'" % path)
         return path
 
@@ -295,10 +307,12 @@ class DiagramItem(QGraphicsItemGroup):
     def shapes(self):
         if not self._shapes:
             self._shapes = {}
-            for elt in ['default', 'start']:
+            for elt in ['start', '']:
                 s = QGraphicsSvgItem(self.SVGShape())
-                s.setElementId(QString(elt))
+                if elt:
+                    s.setElementId(QString(elt))
                 self._shapes[elt] = s
+            self.shapes['start'].setZValue(self.shapes[''].zValue() - 1)
         return self._shapes
 
     def update(self):
@@ -669,14 +683,19 @@ class NodeLibrary(QToolBox):
         self.loadSets()
 
     def loadSets(self):
+        DiagramItem.register(ProcessNode, DiagramItemProcess)
+        DiagramItem.register(InputNode, DiagramItemInput)
+        DiagramItem.register(OutputNode, DiagramItemOutput)
+        
         import_plugins()
+
         libs = groupby([c for c in itersubclasses(Node) if c.label != ''], 'category')
         # Add sets according to groups
         for itemgroup in libs:
             set = []
             for classobj in sorted(itemgroup, cmp=lambda x, y: cmp(x.label, y.label)):
                 item = DiagramItem.factory(classobj)
-                logger.debug(u"Adding %s/%s in nodes library" % (type(item).__name__, classobj.__name__))
+                logger.debug(u"Adding %s/%s in nodes library" % (type(item).__name__, classobj.fullname()))
                 item = LibraryItem(classobj.fullname(), classobj.label, item.SVGShape())
                 set.append(item)
             self.addSet(set, itemgroup[0].category)

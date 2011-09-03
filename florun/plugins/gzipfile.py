@@ -2,7 +2,7 @@
 import gzip
 from gettext import gettext as _
 
-from florun import flow
+from florun import flow, gui
 
 
 """
@@ -34,3 +34,15 @@ class FileGZipInput(flow.FileInputNode):
             self.output.write(line)
         self.output.flush()
         f.close()
+
+
+class DiagramItemGZipOutput(gui.DiagramItemOutput):
+    SVG_SHAPE = "gzipfile-output.svg"
+
+
+class DiagramItemGZipInput(gui.DiagramItemInput):
+    SVG_SHAPE = "gzipfile-input.svg"
+
+
+gui.DiagramItem.register(FileGZipOutput, DiagramItemGZipOutput)
+gui.DiagramItem.register(FileGZipInput, DiagramItemGZipInput)
