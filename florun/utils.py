@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
+import os
 import cStringIO
 import traceback
 
@@ -75,3 +76,11 @@ def itersubclasses(cls, _seen=None):
             yield sub
             for sub in itersubclasses(sub, _seen):
                 yield sub
+
+
+def plugins_list(plugins_dirs):
+    for path in plugins_dirs.split(os.pathsep):
+        for filename in os.listdir(path):
+            name, ext = os.path.splitext(filename)
+            if ext.endswith(".py"):
+                yield name

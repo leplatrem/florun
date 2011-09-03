@@ -21,10 +21,13 @@ __license__   = """This is free software, and you are welcome to
 redistribute it under certain conditions.
 See the GNU General Public Licence for details."""
 
-_          = None
-base_dir   = '.'
-locale_dir = os.path.join(os.path.dirname(__file__), "locale/")
-icons_dir  = os.path.join(os.path.dirname(__file__), "icons/")
+MODULE_DIR = os.path.dirname(__file__)
+
+_            = None
+base_dir     = '.'
+locale_dir   = os.path.join(MODULE_DIR, "locale/")
+icons_dir    = os.path.join(MODULE_DIR, "icons/")
+plugins_dirs = os.path.join(MODULE_DIR, "plugins/")
 
 
 def build_exec_cmd(flow, loglevel, userargs={}):

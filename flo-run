@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf8 -*-
 import logging
 import os
@@ -37,6 +37,9 @@ def main(prefix):
     parser.add_option("-v", "--version",
                       dest="version", default=False, action="store_true",
                       help=_("Show version"))
+    parser.add_option("--plugins-dir",
+                      dest="plugins_dirs", default=None,
+                      help=_("Plugins folders to scan (separated with %s)") % os.pathsep)
     parser.add_option("-e", "--edit",
                       dest="edit", default=None,
                       help=_("Edit specified Florun file"))
@@ -51,7 +54,8 @@ def main(prefix):
     args = sys.argv[1:]
     last = len(args)
     for i, arg in enumerate(args):
-        if arg.startswith('-') and parser.get_option(arg) is None:
+        if not arg.startswith('--') and arg.startswith('-') and \
+           parser.get_option(arg) is None:
             last = i
             break
     # Parse only first part of args
@@ -64,9 +68,14 @@ def main(prefix):
     if options.version:
         showversion()
         return 0
+    
+    if options.plugins_dirs:
+        florun.plugins_dirs = options.plugins_dirs
 
     florun.gui.logger.debug("Prefix : '%s'" % prefix)
     florun.gui.logger.debug("Icons  : '%s'" % florun.icons_dir)
+    florun.flow.logger.debug("Plugins: '%s'" % florun.plugins_dirs)
+    sys.path.extend(florun.plugins_dirs.split(os.pathsep))
 
     if options.edit is not None:
         # Run editor on specified flow

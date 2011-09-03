@@ -13,10 +13,17 @@ from gettext import gettext as _
 import subprocess
 import shlex
 
-from utils import empty, atoi, traceback2str
+import florun
+from utils import empty, atoi, traceback2str, plugins_list
 
 
 logger = logging.getLogger(__name__)
+
+
+def import_plugins():
+    for p in plugins_list(florun.plugins_dirs):
+        m = __import__(p)
+        globals()[p] = m
 
 
 class FlowError(Exception):
@@ -199,6 +206,7 @@ class Flow(object):
         flow = Flow()
         dom = parseString(xmlcontent)
 
+        import_plugins()
         for xmlnode in dom.getElementsByTagName('node'):
             nodeid    = xmlnode.getAttribute('id')
             classname = xmlnode.getAttribute('type')
@@ -255,7 +263,7 @@ class Flow(object):
         for node in self.nodes:
             xmlnode = grxml.createElement('node')
             xmlnode.setAttribute('id', unicode(node.id))
-            xmlnode.setAttribute('type', unicode(node.classname))
+            xmlnode.setAttribute('type', unicode(node.fullname()))
             grxmlr.appendChild(xmlnode)
 
             # Graphical properties
@@ -429,6 +437,10 @@ class Node(object):
         self.__readyinterfaces = {}
         self.canRun  = threading.Event()
         self.running = False
+
+    @classmethod
+    def fullname(cls):
+        return "%s.%s" % (cls.__module__, cls.__name__)
 
     def applyAttributes(self, entries):
         """
