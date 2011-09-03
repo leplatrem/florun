@@ -5,10 +5,10 @@ USAGE
 =====
 
 The editor comes up by default (requires PyQt4)
-  ./florun.py
+  ./flo-run
 
 Run a flow
-  ./florun.py --execute=FILE
+  ./flo-run --execute=FILE
 
 
 =======

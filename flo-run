@@ -20,11 +20,7 @@ def showversion():
 
 
 def main(prefix):
-    if not prefix.startswith('/usr'):
-        florun.base_dir   = prefix
-        florun.locale_dir = os.path.join(prefix, 'florun', 'locale')
-        florun.icons_dir  = os.path.join(prefix, 'florun', 'icons')
-    else:
+    if prefix.startswith('/usr'):
         prefix = os.path.join(prefix, '..')
         prefix = os.path.abspath(os.path.normpath(prefix))
         florun.base_dir   = os.path.expanduser("~")
@@ -36,7 +32,7 @@ def main(prefix):
     florun._ = _
 
     # Parse command-line arguments
-    parser = OptionParser(usage='%s [options]' % florun.__title__)
+    parser = OptionParser(usage='%s [options]' % __file__)
 
     parser.add_option("-v", "--version",
                       dest="version", default=False, action="store_true",

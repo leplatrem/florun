@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 import florun
 
-files = ["icons/*", "examples/*"]
+files = ["icons/*", "locale/*/*/*", "examples/*"]
 
 setup(name         = florun.__title__,
       version      = florun.__version__,
@@ -18,7 +18,7 @@ setup(name         = florun.__title__,
       provides     = ['florun'],
       packages     = find_packages(),
       package_data = {'florun' : files },
-      scripts      = ["florun.py"],
+      scripts      = ["flo-run"],
       platforms    = ('any',),
       requires     = ['PyQt (>=4.6)'],
       keywords     = ['flow', 'PyQt', 'GUI'],

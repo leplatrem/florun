@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
+import os
+
 __title__     = "florun"
 __author__    = "Mathieu Leplatre"
 __email__     = "contact@mathieu-leplatre.info"
@@ -20,9 +22,9 @@ redistribute it under certain conditions.
 See the GNU General Public Licence for details."""
 
 _          = None
-base_dir   = None
-locale_dir = ''
-icons_dir  = ''
+base_dir   = '.'
+locale_dir = os.path.join(os.path.dirname(__file__), "locale/")
+icons_dir  = os.path.join(os.path.dirname(__file__), "icons/")
 
 
 def build_exec_cmd(flow, loglevel, userargs={}):
@@ -32,7 +34,7 @@ def build_exec_cmd(flow, loglevel, userargs={}):
     @rtype: string
     """
     import os
-    florunmain = os.path.join(base_dir, 'florun.py')
+    florunmain = os.path.join(base_dir, 'flo-run')
     return u'python %s --level %s --execute "%s" %s' % \
                 (florunmain,
                  loglevel,
