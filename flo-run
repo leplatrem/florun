@@ -70,7 +70,7 @@ def main(prefix):
         return 0
     
     if options.plugins_dirs:
-        florun.plugins_dirs = options.plugins_dirs
+        florun.plugins_dirs += (os.pathsep + options.plugins_dirs)
 
     florun.gui.logger.debug("Prefix : '%s'" % prefix)
     florun.gui.logger.debug("Icons  : '%s'" % florun.icons_dir)
