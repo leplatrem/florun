@@ -84,3 +84,9 @@ def plugins_list(plugins_dirs):
             name, ext = os.path.splitext(filename)
             if ext.endswith(".py"):
                 yield name
+
+
+def import_plugins(plugins_dirs, env):
+    for p in plugins_list(plugins_dirs):
+        m = __import__(p)
+        env[p] = m

@@ -14,16 +14,10 @@ import subprocess
 import shlex
 
 import florun
-from utils import empty, atoi, traceback2str, plugins_list
+from utils import empty, atoi, traceback2str, import_plugins
 
 
 logger = logging.getLogger(__name__)
-
-
-def import_plugins():
-    for p in plugins_list(florun.plugins_dirs):
-        m = __import__(p)
-        globals()[p] = m
 
 
 class FlowError(Exception):
@@ -206,7 +200,8 @@ class Flow(object):
         flow = Flow()
         dom = parseString(xmlcontent)
 
-        import_plugins()
+        import_plugins(florun.plugins_dirs, globals())
+        
         for xmlnode in dom.getElementsByTagName('node'):
             nodeid    = xmlnode.getAttribute('id')
             classname = xmlnode.getAttribute('type')

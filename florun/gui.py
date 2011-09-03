@@ -24,15 +24,11 @@ from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
 from florun.flow  import *
-from florun.utils import plugins_list, itersubclasses, groupby, empty
+from florun.utils import import_plugins, itersubclasses, groupby, empty
 
 
 logger = logging.getLogger(__name__)
 
-def import_plugins():
-    for p in plugins_list(florun.plugins_dirs):
-        m = __import__(p)
-        globals()[p] = m
 
 """
     
@@ -687,7 +683,7 @@ class NodeLibrary(QToolBox):
         DiagramItem.register(InputNode, DiagramItemInput)
         DiagramItem.register(OutputNode, DiagramItemOutput)
         
-        import_plugins()
+        import_plugins(florun.plugins_dirs, globals())
 
         libs = groupby([c for c in itersubclasses(Node) if c.label != ''], 'category')
         # Add sets according to groups
