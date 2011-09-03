@@ -59,8 +59,26 @@ or
 CHANGELOG
 =========
 
+0.2.0
+-----
+
+    * Bug #152: Drop position of items is not centered under mouse
+    * Bug #264: Fix flag itemChange() introduced in 4.6
+    * Bug #265: Catch keyboard interrupt in editor
+    * Feature #128: Export flow to image
+    * Feature #129: Editor Preferences system
+    * Feature #145: Distinguish start nodes from other in GUI
+    * Feature #148: Arrows on connectors
+    * Feature #155: ParameterEditor : press enter in field should apply changes
+    * Feature #157: Flow readonly while process running
+    * Feature #228: Allow to run unsaved flow
+    * Refactoring #267: Write some tests, at last !
+
+
+
 0.1.0
 -----
+
     * Bug #110: constraints on splitview
     * Bug #112: z-order on node titles
     * Bug #130: segfault when activate/desactivate slot parameter
@@ -96,4 +114,5 @@ CHANGELOG
 
 0.0.1
 -----
+
     * Initial base code
