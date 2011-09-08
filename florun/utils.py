@@ -79,6 +79,9 @@ def itersubclasses(cls, _seen=None):
 
 
 def plugins_list(plugins_dirs):
+    """
+    Generator over all available plugins files basenames, present in all specified ``plugins_dirs``.
+    """
     for path in plugins_dirs.split(os.pathsep):
         for filename in os.listdir(path):
             name, ext = os.path.splitext(filename)
@@ -87,6 +90,9 @@ def plugins_list(plugins_dirs):
 
 
 def import_plugins(plugins_dirs, env):
+    """
+    Imports in specified ``env`` all plugins available in ``plugins_dirs``
+    """
     for p in plugins_list(plugins_dirs):
         m = __import__(p)
         env[p] = m

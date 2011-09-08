@@ -10,7 +10,9 @@ from . import plugins_dirs
 from .flow import Flow, Node, Interface, FlowError, NodeNotFoundError, Runner
 from .utils import import_plugins
 
+# Extends current python path with all plugins dirs
 sys.path.extend(plugins_dirs.split(os.pathsep))
+# Import all plugins found
 import_plugins(plugins_dirs, globals())
 
 
