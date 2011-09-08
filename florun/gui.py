@@ -24,7 +24,7 @@ from PyQt4.QtSvg  import QGraphicsSvgItem
 
 import florun
 from florun.flow  import *
-from florun.utils import import_plugins, itersubclasses, groupby, empty
+from florun.utils import import_plugins, itersubclasses, groupby, empty, traceback2str
 
 
 logger = logging.getLogger(__name__)

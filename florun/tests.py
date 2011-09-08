@@ -1,11 +1,17 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
+import os
+import sys
 import unittest
 import logging
 import tempfile
 
-from flow import Flow, Node, Interface, FlowError, NodeNotFoundError, \
-                 Runner, FileInputNode, FileOutputNode
+from . import plugins_dirs
+from .flow import Flow, Node, Interface, FlowError, NodeNotFoundError, Runner
+from .utils import import_plugins
+
+sys.path.extend(plugins_dirs.split(os.pathsep))
+import_plugins(plugins_dirs, globals())
 
 
 class INode(Node):
@@ -202,11 +208,11 @@ class TestRunner(unittest.TestCase):
         
         self.flow = Flow()
         
-        self.input = FileInputNode(id='input')
+        self.input = file.FileInputNode(id='input')
         self.input.filepath.value = __file__
         
         tmp = tempfile.NamedTemporaryFile()
-        self.output = FileOutputNode(id='output')
+        self.output = file.FileOutputNode(id='output')
         self.output.filepath.value = tmp.name
         
         self.flow.addNode(self.input)

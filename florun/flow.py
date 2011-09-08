@@ -2,19 +2,15 @@
 # -*- coding: utf8 -*-
 
 import logging
-import os
-import sys
 import copy
 import codecs
 import threading
 from xml.dom.minidom import Document, parseString
 import tempfile
 from gettext import gettext as _
-import subprocess
-import shlex
 
 import florun
-from utils import empty, atoi, traceback2str, import_plugins
+from utils import empty, atoi, import_plugins
 
 
 logger = logging.getLogger(__name__)
@@ -72,7 +68,7 @@ class Flow(object):
 
     def CLIParameterNodes(self):
         return [n for n in self.nodes
-                  if issubclass(n.__class__, CommandLineParameterInputNode)]
+                  if n.isCLIParameterNode()]
 
     def addConnector(self, start, end):
         """
@@ -549,6 +545,12 @@ class Node(object):
         """
         raise NotImplementedError
 
+    def isCLIParameterNode(self):
+        """
+        Determines whether the node will handle command-line arguments
+        """
+        return False
+
     def start(self):
         """
         Start execution of node.
@@ -698,25 +700,7 @@ class InterfaceList(Interface):
 
 class ProcessNode(Node):
     category = _(u"Basic")
-    label    = _(u"Process")
-    description = _(u"Execute a shell command")
-
-    def __init__(self, *args, **kwargs):
-        Node.__init__(self, *args, **kwargs)
-        self.stdin   = InterfaceStream(self, 'stdin',  default='EOF', type=Interface.INPUT,  doc="standard input")
-        self.stdout  = InterfaceStream(self, 'stdout', default='EOF', type=Interface.OUTPUT, doc="standard output")
-        self.stderr  = InterfaceStream(self, 'stderr', default='EOF', type=Interface.OUTPUT, doc="standard error output")
-        self.command = InterfaceValue(self,  'cmd',    default='',    type=Interface.PARAMETER, slot=False, doc="command to run")
-        self.result  = InterfaceValue(self,  'result', default=0,     type=Interface.RESULT, doc="execution code return")
-
-    def run(self):
-        # Run cmd with input from stdin, and send output to stdout/stderr, result code
-        cmd = str(self.command.value)
-        args = shlex.split(cmd)
-        self.info("Run command '%s'" % args)
-        proc = subprocess.Popen(args, stdin=self.stdin.stream, stdout=self.stdout.stream, stderr=self.stderr.stream)
-        proc.wait()
-        self.result.value = proc.returncode
+    label    = _(u"")
 
 
 class InputNode(Node):
@@ -724,25 +708,9 @@ class InputNode(Node):
     label    = _(u"")
 
 
-class FileInputNode(InputNode):
-    label       = _(u"File")
-    description = _(u"Read the content of a file")
-
-    def __init__(self, *args, **kwargs):
-        InputNode.__init__(self, *args, **kwargs)
-        self.filepath = InterfaceValue(self,  'filepath', default='',    type=Interface.PARAMETER, slot=False, doc="file to read")
-        self.output   = InterfaceStream(self, 'output',   default='EOF', type=Interface.OUTPUT,    doc="file content")
-
-    def run(self):
-        # Read file content and pass to output interface
-        if empty(self.filepath.value):
-            raise FlowError(_("Filepath empty, cannot read file."))
-        self.info(_("Read content of file '%s'") % self.filepath.value)
-        f = open(self.filepath.value, 'rb')
-        for line in f:
-            self.output.write(line)
-        self.output.flush()
-        f.close()
+class OutputNode(Node):
+    category = _(u"Output")
+    label    = _(u"")
 
 
 class ValueInputNode(InputNode):
@@ -757,118 +725,6 @@ class ValueInputNode(InputNode):
     def run(self):
         self.output.value = self.input.value
 
-
-class CommandLineParameterInputNode(InputNode):
-    label       = _(u"CLI Param")
-    description = _(u"Read a Command-Line Interface parameter")
-
-    def __init__(self, *args, **kwargs):
-        InputNode.__init__(self, *args, **kwargs)
-        self.name    = InterfaceValue(self, 'name',    default='', type=Interface.PARAMETER, slot=False, doc=_("Command line interface parameter name"))
-        self.value   = InterfaceValue(self, 'value',   default='', type=Interface.OUTPUT,    doc=_("value retrieved"))
-        self.default = InterfaceValue(self, 'default', default='', type=Interface.PARAMETER, slot=False, doc=_("default value if not specified at runtime"))
-
-        #: L{optparse.Values}
-        self.options = None
-
-    def run(self):
-        # Options were parsed in main
-        value = getattr(self.options, self.paramname)
-        if empty(value):
-            self.debug("Expected parameter '%s' is missing from command-line, use default." % self.paramname)
-            value = self.default.value
-        self.info(_("CLI Parameter '%s'='%s'") % (self.paramname, value))
-        self.value.value = value
-
-    @property
-    def paramname(self):
-        name = self.name.value
-        if empty(name):
-            raise FlowError(_("Error in getting name of CLI Parameter"))
-        return name
-
-
-class CommandLineStdinInputNode(InputNode):
-    label    = _(u"CLI Stdin")
-    description = _(u"Read the Command-Line Interface standard input")
-
-    def __init__(self, *args, **kwargs):
-        InputNode.__init__(self, *args, **kwargs)
-        self.output   = InterfaceStream(self, 'output', default='EOF', type=Interface.OUTPUT, doc="standard input content")
-
-    def run(self):
-        for line in sys.stdin:
-            self.output.write(line)
-        self.output.flush()
-
-
-class FileListInputNode(InputNode):
-    label    = _(u"File list")
-    description = _(u"List files of a folder")
-
-    def __init__(self, *args, **kwargs):
-        InputNode.__init__(self, *args, **kwargs)
-        self.folder   = InterfaceValue(self, 'folder',   default='', type=Interface.PARAMETER, slot=False, doc="folder to scan")
-        self.filelist = InterfaceList(self,  'filelist', default='', type=Interface.OUTPUT,    doc="list of file paths")
-
-    def run(self):
-        path = self.folder.value
-        self.info(_("Recursive file list of folder '%s'") % path)
-        self.filelist.items = self.walk(path)
-
-    def walk(self, dirpath):
-        filelist = []
-        dirpath = os.path.abspath(dirpath)
-        if not os.path.exists(dirpath):
-            raise FlowError(_("Folder not found '%s'") % dirpath)
-        for f in [ff for ff in os.listdir(dirpath) if ff not in [".", ".."]]:
-            nfile = os.path.join(dirpath, f)
-            filelist.append(nfile)
-            if os.path.isdir(nfile):
-                filelist.extend(self.walk(nfile))
-        return filelist
-
-
-#
-# Output nodes
-#
-
-
-class OutputNode(Node):
-    category = _(u"Output")
-    label    = _(u"")
-
-
-class FileOutputNode(OutputNode):
-    label    = _(u"File")
-    description = _(u"Write the content to a file")
-
-    def __init__(self, *args, **kwargs):
-        OutputNode.__init__(self, *args, **kwargs)
-        self.filepath = InterfaceValue(self, 'filepath', default='',  type=Interface.PARAMETER, slot=False, doc="file to write")
-        self.input    = InterfaceStream(self, 'input', default='EOF', type=Interface.INPUT, doc="input to write")
-
-    def run(self):
-        self.info(_("Write content to file '%s'") % self.filepath.value)
-        f = open(self.filepath.value, 'wb')
-        for line in self.input:
-            f.write(line)
-        f.close()
-
-
-class CommandLineStdoutOutputNode(OutputNode):
-    label       = _(u"CLI Stdout")
-    description = _(u"Write to the Command-Line Interface standard output")
-
-    def __init__(self, *args, **kwargs):
-        OutputNode.__init__(self, *args, **kwargs)
-        self.outstream = sys.stdout
-        self.input     = InterfaceStream(self, 'input', default='EOF', type=Interface.INPUT, doc="standard output")
-
-    def run(self):
-        for line in self.input:
-            self.outstream.write(line)
-        self.outstream.flush()
 
 #
 #    Execution classes

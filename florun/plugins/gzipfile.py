@@ -3,7 +3,7 @@ import gzip
 from gettext import gettext as _
 
 from florun import flow, gui
-
+from .file import FileOutputNode, FileInputNode
 
 """
 
@@ -11,7 +11,7 @@ from florun import flow, gui
 
 """
 
-class FileGZipOutput(flow.FileOutputNode):
+class FileGZipOutput(FileOutputNode):
     label = _(u"GZip File")
     description = _(u"Write the content to a Gzip file")
 
@@ -23,7 +23,7 @@ class FileGZipOutput(flow.FileOutputNode):
         f.close()
 
 
-class FileGZipInput(flow.FileInputNode):
+class FileGZipInput(FileInputNode):
     label = _(u"GZip File")
     description = _(u"Read the content of a Gzip file")
 
