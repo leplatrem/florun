@@ -3,7 +3,7 @@ import gzip
 from gettext import gettext as _
 
 from florun import flow, gui
-from .file import FileOutputNode, FileInputNode
+from file import FileOutputNode, FileInputNode
 
 """
 

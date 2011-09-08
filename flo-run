@@ -39,7 +39,8 @@ def main(prefix):
                       help=_("Show version"))
     parser.add_option("--plugins-dir",
                       dest="plugins_dirs", default=None,
-                      help=_("Plugins folders to scan (separated with %s)") % os.pathsep)
+                      help=_("Plugins folders to scan "
+                             "(separated with %(sep)s). Extends if starts with '%(sep)s', overrides otherwise.") % {'sep': os.pathsep})
     parser.add_option("-e", "--edit",
                       dest="edit", default=None,
                       help=_("Edit specified Florun file"))
@@ -70,7 +71,10 @@ def main(prefix):
         return 0
     
     if options.plugins_dirs:
-        florun.plugins_dirs += (os.pathsep + options.plugins_dirs)
+        if options.plugins_dirs.startswith(os.pathsep):
+            florun.plugins_dirs += options.plugins_dirs
+        else:
+            florun.plugins_dirs = options.plugins_dirs
 
     florun.gui.logger.debug("Prefix : '%s'" % prefix)
     florun.gui.logger.debug("Icons  : '%s'" % florun.icons_dir)
