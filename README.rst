@@ -1,4 +1,4 @@
-http://code.mathieu-leplatre.info/projects/show/florun
+.. image :: http://mathieu-leplatre.info/media/2009-florun.gif
 
 =====
 USAGE
